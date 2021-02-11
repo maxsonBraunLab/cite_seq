@@ -9,6 +9,7 @@ Process CITE-Seq data using Seurat. Steps include pre-processing, individual clu
 Developer to-do list:
 
   * Develop and test the 4 scripts iteratively.
+  * Automate tabbed table generation in `1-preprocess.Rmd`
   * Define a common environment (SnakeMake?)
   * Give constructive feedback!
 
