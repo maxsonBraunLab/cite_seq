@@ -1084,7 +1084,7 @@ Quantile | `r summVarDesc`| Number of cells
 
 ```{r filter}
 
-preprocExptsList <- list()
+preProcExptsList <- list()
 
 for (sample in names(exptsList)) {
   myso <- exptsList[[sample]]
@@ -1107,7 +1107,7 @@ for (sample in names(exptsList)) {
   myso <- subset(myso, subset = nCount_RNA > nCountMinFilt & nCount_RNA < nCountMaxFilt & percentMito < percentMitoFilt)
   print(sprintf("Filtered %s:  %i cells, %i features remaining", sample, dim(myso)[1], dim(myso)[1]))
 
-  preprocExptsList[[sample]] <- myso
+  preProcExptsList[[sample]] <- myso
 }
 ```
 
@@ -1124,7 +1124,7 @@ for (sample in samples2process) {
 
   paste(sprintf("Normalize & Scaling the %s object", sample))
 
-  myso <- preprocExptsList[[sample]]
+  myso <- preProcExptsList[[sample]]
 
   # Assign cell cycle scores
   myso <- CellCycleScoring(myso, s.features = s_genes, g2m.features = g2m_genes, set.ident = TRUE)
@@ -1152,9 +1152,9 @@ for (sample in samples2process) {
 
   # Save Seurat Object with cell cycle regression if indicated above
   if (cellCycleRegression){
-    preprocExptsList[[sample]] <- mysoWithReg
+    preProcExptsList[[sample]] <- mysoWithReg
   } else{
-    preprocExptsList[[sample]] <- mysoNoReg
+    preProcExptsList[[sample]] <- mysoNoReg
   }
 }
 ```
@@ -1179,7 +1179,7 @@ plot(regressionPlots[[samples2process[i]]][["pcaPreCCR"]] + regressionPlots[[sam
 heatmapList <- list()
 for (ii in seq(1,15,1)) {
   plotLabel <- paste(c("PCA", ii), collapse = "")
-  heatmapList[[plotLabel]] <- DimHeatmap(mysoWithReg, reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
+  heatmapList[[plotLabel]] <- DimHeatmap(preProcExptsList[[samples2process[i]]], reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
     theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
     scale_y_discrete(position = "right") +
     scale_fill_viridis()
@@ -1206,7 +1206,7 @@ plot(regressionPlots[[samples2process[i]]][["pcaPreCCR"]] + regressionPlots[[sam
 heatmapList <- list()
 for (ii in seq(1,15,1)) {
   plotLabel <- paste(c("PCA", ii), collapse = "")
-  heatmapList[[plotLabel]] <- DimHeatmap(mysoWithReg, reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
+  heatmapList[[plotLabel]] <- DimHeatmap(preProcExptsList[[samples2process[i]]], reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
     theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
     scale_y_discrete(position = "right") +
     scale_fill_viridis()
@@ -1233,7 +1233,7 @@ plot(regressionPlots[[samples2process[i]]][["pcaPreCCR"]] + regressionPlots[[sam
 heatmapList <- list()
 for (ii in seq(1,15,1)) {
   plotLabel <- paste(c("PCA", ii), collapse = "")
-  heatmapList[[plotLabel]] <- DimHeatmap(mysoWithReg, reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
+  heatmapList[[plotLabel]] <- DimHeatmap(preProcExptsList[[samples2process[i]]], reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
     theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
     scale_y_discrete(position = "right") +
     scale_fill_viridis()
@@ -1260,7 +1260,7 @@ plot(regressionPlots[[samples2process[i]]][["pcaPreCCR"]] + regressionPlots[[sam
 heatmapList <- list()
 for (ii in seq(1,15,1)) {
   plotLabel <- paste(c("PCA", ii), collapse = "")
-  heatmapList[[plotLabel]] <- DimHeatmap(mysoWithReg, reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
+  heatmapList[[plotLabel]] <- DimHeatmap(preProcExptsList[[samples2process[i]]], reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
     theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
     scale_y_discrete(position = "right") +
     scale_fill_viridis()
@@ -1274,7 +1274,7 @@ plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nro
 ```{r save_data}
 file2save <- sprintf("preprocessed.%s.rds", Sys.Date())
 print(sprintf("Saving preprocessed data in individual objects in %s", file2save))
-saveRDS(preprocExptsList, file = paste(directory$rda, file2save, sep = "/"))
+saveRDS(preProcExptsList, file = paste(directory$rda, file2save, sep = "/"))
 ```
 
 ### Session Information
