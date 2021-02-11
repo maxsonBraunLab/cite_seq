@@ -29,6 +29,7 @@ library(patchwork)
 library(dplyr)
 library(ggthemes)
 library(rlist)
+library(cowplot)
 library(viridis)
 ```
 
@@ -1142,76 +1143,130 @@ for (sample in samples2process) {
   mysoWithReg <- RunPCA(mysoWithReg, verbose = FALSE)
 
   # Ridge plot of cell cycle genes
-  p <- RidgePlot(mysoWithReg, features = c("NASP", "USP1", "TUBB4B", "HMGB2", "PCNA", "TOP2A", "MCM6", "MKI67"), group.by = "Phase", ncol = 4)
-  regressionPlots[[sample]][["ridgePlotCC"]] <- p
-
-  #plot(p + plot_annotation(title = sprintf("Ridge Plot of Cell Cycle Genes in %s", sample)))
+  regressionPlots[[sample]][["ridgePlotCC"]] <- RidgePlot(mysoWithReg, features = c("NASP", "USP1", "TUBB4B", "HMGB2", "PCNA", "TOP2A", "MCM6", "MKI67"), group.by = "Phase", ncol = 4)
 
   # Plot PCAs Pre- and Post- Cell Cycle Regression
-  p <- DimPlot(mysoNoReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
-  regressionPlots[[sample]][['pcaPreCCR']] <- p
+  regressionPlots[[sample]][['pcaPreCCR']] <- DimPlot(mysoNoReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
 
-  p <- DimPlot(mysoWithReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
-  regressionPlots[[sample]][['pcaPostCCR']] <- p
-
-  #plot(p1 + p2 + plot_annotation(title = sprintf("PCA Pre- and Post- Cell Cycle Regression in %s", sample)))
+  regressionPlots[[sample]][['pcaPostCCR']] <- DimPlot(mysoWithReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
 
   # Save Seurat Object with cell cycle regression if indicated above
   if (cellCycleRegression){
-
-    # Look at the Features that identify the top Principle Components
-    #DimHeatmap(mysoWithReg, reduction = "pca", dims = 1:15, cells = 500, balanced = TRUE)
-
-    p <- DimHeatmap(mysoWithReg, reduction = "pca", dims = 1:15, cells = 500, balanced = TRUE)
-    regressionPlots[[sample]][['heatmapPCA']] <- p
-
     preprocExptsList[[sample]] <- mysoWithReg
   } else{
-
-    # Look at the Features that identify the top Principle Components
-    #DimHeatmap(mysoNoReg, reduction = "pca", dims = 1:15, cells = 500, balanced = TRUE)
-
-    p <- DimHeatmap(mysoWithReg, reduction = "pca", dims = 1:15, cells = 500, balanced = TRUE)
-    regressionPlots[[sample]] <- p
-
     preprocExptsList[[sample]] <- mysoNoReg
   }
 }
 ```
 
+#### Regression Plots {.tabset}
 
-##### Regression Plots {.tabset}
+`r i <- 1`
+##### `r toupper(samples2process[i])`
 
-###### `r toupper(samples2process[1])`
-
+###### Ridge Plot of Cell Cycle Genes
 ``` {r}
-plot(regressionPlots[[samples2process[1]]][["ridgePlotCC"]] + plot_annotation(title ="Ridge Plot of Cell Cycle Genes"))
-plot(regressionPlots[[samples2process[1]]][["pcaPreCCR"]] + regressionPlots[[samples2process[1]]][["pcaPostCCR"]] + plot_annotation(title = "PCA Pre- and Post- Cell Cycle Regression"))
-DimHeatmap(preprocExptsList[[samples2process[1]]], reduction = "pca", dims = 1:15, cells = 500, balanced = TRUE)
+plot(regressionPlots[[samples2process[i]]][["ridgePlotCC"]])
 ```
 
-###### `r toupper(samples2process[2])`
-
+###### PCA Pre- and Post- Cell Cycle Regression
 ``` {r}
-plot(regressionPlots[[samples2process[2]]][["ridgePlotCC"]] + plot_annotation(title ="Ridge Plot of Cell Cycle Genes"))
-plot(regressionPlots[[samples2process[2]]][["pcaPreCCR"]] + regressionPlots[[samples2process[2]]][["pcaPostCCR"]] + plot_annotation(title = "PCA Pre- and Post- Cell Cycle Regression"))
-DimHeatmap(preprocExptsList[[samples2process[2]]], reduction = "pca", dims = 1:15, cells = 500, balanced = TRUE)
+plot(regressionPlots[[samples2process[i]]][["pcaPreCCR"]] + regressionPlots[[samples2process[i]]][["pcaPostCCR"]])
 ```
 
-###### `r toupper(samples2process[3])`
-
+###### PCA Dimensions 1-15 Feature Heatmaps
 ``` {r}
-plot(regressionPlots[[samples2process[3]]][["ridgePlotCC"]] + plot_annotation(title ="Ridge Plot of Cell Cycle Genes"))
-plot(regressionPlots[[samples2process[3]]][["pcaPreCCR"]] + regressionPlots[[samples2process[3]]][["pcaPostCCR"]] + plot_annotation(title = "PCA Pre- and Post- Cell Cycle Regression"))
-DimHeatmap(preprocExptsList[[samples2process[3]]], reduction = "pca", dims = 1:15, cells = 500, balanced = TRUE)
+heatmapList <- list()
+for (ii in seq(1,15,1)) {
+  plotLabel <- paste(c("PCA", ii), collapse = "")
+  heatmapList[[plotLabel]] <- DimHeatmap(mysoWithReg, reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
+    theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
+    scale_y_discrete(position = "right") +
+    scale_fill_viridis()
+}
+
+plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3)
 ```
 
-###### `r toupper(samples2process[4])`
+`r i <- 2`
+##### `r toupper(samples2process[i])`
 
+###### Ridge Plot of Cell Cycle Genes
 ``` {r}
-plot(regressionPlots[[samples2process[4]]][["ridgePlotCC"]] + plot_annotation(title ="Ridge Plot of Cell Cycle Genes"))
-plot(regressionPlots[[samples2process[4]]][["pcaPreCCR"]] + regressionPlots[[samples2process[4]]][["pcaPostCCR"]] + plot_annotation(title = "PCA Pre- and Post- Cell Cycle Regression"))
-DimHeatmap(preprocExptsList[[samples2process[4]]], reduction = "pca", dims = 1:15, cells = 500, balanced = TRUE)
+plot(regressionPlots[[samples2process[i]]][["ridgePlotCC"]])
+```
+
+###### PCA Pre- and Post- Cell Cycle Regression
+``` {r}
+plot(regressionPlots[[samples2process[i]]][["pcaPreCCR"]] + regressionPlots[[samples2process[i]]][["pcaPostCCR"]])
+```
+
+###### PCA Dimensions 1-15 Feature Heatmaps
+``` {r}
+heatmapList <- list()
+for (ii in seq(1,15,1)) {
+  plotLabel <- paste(c("PCA", ii), collapse = "")
+  heatmapList[[plotLabel]] <- DimHeatmap(mysoWithReg, reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
+    theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
+    scale_y_discrete(position = "right") +
+    scale_fill_viridis()
+}
+
+plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3)
+```
+
+`r i <- 3`
+##### `r toupper(samples2process[i])`
+
+###### Ridge Plot of Cell Cycle Genes
+``` {r}
+plot(regressionPlots[[samples2process[i]]][["ridgePlotCC"]])
+```
+
+###### PCA Pre- and Post- Cell Cycle Regression
+``` {r}
+plot(regressionPlots[[samples2process[i]]][["pcaPreCCR"]] + regressionPlots[[samples2process[i]]][["pcaPostCCR"]])
+```
+
+###### PCA Dimensions 1-15 Feature Heatmaps
+``` {r}
+heatmapList <- list()
+for (ii in seq(1,15,1)) {
+  plotLabel <- paste(c("PCA", ii), collapse = "")
+  heatmapList[[plotLabel]] <- DimHeatmap(mysoWithReg, reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
+    theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
+    scale_y_discrete(position = "right") +
+    scale_fill_viridis()
+}
+
+plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3)
+```
+
+`r i <- 4`
+##### `r toupper(samples2process[i])`
+
+###### Ridge Plot of Cell Cycle Genes
+``` {r}
+plot(regressionPlots[[samples2process[i]]][["ridgePlotCC"]])
+```
+
+###### PCA Pre- and Post- Cell Cycle Regression
+``` {r}
+plot(regressionPlots[[samples2process[i]]][["pcaPreCCR"]] + regressionPlots[[samples2process[i]]][["pcaPostCCR"]])
+```
+
+###### PCA Dimensions 1-15 Feature Heatmaps
+``` {r}
+heatmapList <- list()
+for (ii in seq(1,15,1)) {
+  plotLabel <- paste(c("PCA", ii), collapse = "")
+  heatmapList[[plotLabel]] <- DimHeatmap(mysoWithReg, reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
+    theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
+    scale_y_discrete(position = "right") +
+    scale_fill_viridis()
+}
+
+plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3)
 ```
 
 ### Save Data
