@@ -66,22 +66,28 @@ if (!dir.exists(directory$rda)) {
 # Samples to process named by their treatment conditions
 samples2process = c("dmso", "quzi", "ory", "combo")
 
+# Name of the single cell project
+projectName <- "flt3_aml"
+
 # Determines whether or not to regress by cell cycle in scaling step 
 cellCycleRegression <- TRUE
 
 # List which quantiles to map onto the summary figures
-metadataQuants<- c(0.0, 0.25, 0.5, 0.75, 1.0)
+metadataQuants<- c(0.0, 0.25, 0.5, 0.75, 0.95, 1.0)
 
 # Set filtering criterion
 # Mitochondrial gene expression ratio per cell
-percentMitoFilt = 20
+percentMitoFilt = 25
 
 # Minimum and maximum counts per cell
 nCountMinFilt = 200
 nCountMaxFilt = 25000
+
+# Set how many principle components to calculate
+nPCs <- 150
 ```
 
-#### Inherent Variables
+##### Inherent Variables
 
 ```{r setup_inherent_variables}
 
@@ -185,9 +191,7 @@ for (sample in samples2process) {
 }
 ```
 
-### Summary Plots
-
-#### Prepare Metadata 
+### Prepare Metadata 
 
 ```{r metadata}
 
@@ -310,6 +314,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -320,7 +325,8 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[2]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[2],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[2],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
-`r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` 
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -331,7 +337,8 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[2]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[2],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[2],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
-`r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`  
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -343,6 +350,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 
 #### Distribution of Counts Detected per Cell (Boxplot)
@@ -377,6 +385,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -388,6 +397,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -399,6 +409,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -410,6 +421,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 #### Distribution of Genes Detected per Cell (Density Plot)
 
@@ -441,6 +453,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -452,6 +465,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -463,6 +477,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -474,6 +489,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 
 #### Distribution of Genes Detected per Cell (Boxplot)
@@ -508,6 +524,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -519,6 +536,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -530,6 +548,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -541,6 +560,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 
 #### Distribution of Mitochondrial Gene Expression per Cell (Density Plot)
@@ -572,6 +592,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -583,6 +604,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -594,6 +616,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -605,6 +628,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 #### Distribution of Mitochondrial Gene Expression per Cell (Boxplot)
 
@@ -637,6 +661,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -648,6 +673,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -659,6 +685,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -670,6 +697,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 #### Correlation Between Genes Detected and Number of Counts
 
@@ -717,6 +745,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -728,6 +757,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -739,6 +769,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -750,6 +781,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 ### CITE-seq Summary plots
 
@@ -784,6 +816,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -795,6 +828,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -806,6 +840,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -817,6 +852,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 #### Distribution of CITE-seq Antibodies per Cell (Boxplot)
 
@@ -851,6 +887,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -862,6 +899,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -873,6 +911,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -884,6 +923,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 #### Distribution of CITE-seq Antibodies per Cell (Density Plot)
 
@@ -916,6 +956,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -927,6 +968,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -938,6 +980,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -949,6 +992,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 #### Distribution of CITE-seq Antibodies per Cell (Boxplot)
 
@@ -983,6 +1027,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -994,6 +1039,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -1005,6 +1051,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -1016,6 +1063,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 #### Distribution of Antibody Expression Complexity
 
@@ -1046,6 +1094,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 2`
 ###### `r toupper(samples2process[i])`
@@ -1057,6 +1106,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 3`
 ###### `r toupper(samples2process[i])`
@@ -1068,6 +1118,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 `r i <- 4`
 ###### `r toupper(samples2process[i])`
@@ -1079,6 +1130,7 @@ Quantile | `r summVarDesc`| Number of cells
 `r metadataQuantPercent[3]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[3],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[4]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[4],summVar], big.mark=",", digits=3, scientific=FALSE)`
 `r metadataQuantPercent[5]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[5],summVar], big.mark=",", digits=3, scientific=FALSE)`
+`r metadataQuantPercent[6]` | `r format(metadataQuantList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)` | `r format(metadataQuantCellCountsList[[samples2process[i]]][metadataQuantPercent[6],summVar], big.mark=",", digits=3, scientific=FALSE)`
 
 ### Filter
 
@@ -1134,13 +1186,13 @@ for (sample in samples2process) {
 
   # Analyze without cell cycle regression
   mysoNoReg <- SCTransform(myso, verbose = FALSE)
-  mysoNoReg <- RunPCA(mysoNoReg, verbose = FALSE)
+  mysoNoReg <- RunPCA(mysoNoReg, npcs = nPCs, verbose = FALSE)
 
   # Analyze with cell cycle regression
   mysoWithReg <- SCTransform(myso,
                              vars.to.regress = "CC.Difference",
                              verbose = FALSE)
-  mysoWithReg <- RunPCA(mysoWithReg, verbose = FALSE)
+  mysoWithReg <- RunPCA(mysoWithReg, npcs = nPCs, verbose = FALSE)
 
   # Ridge plot of cell cycle genes
   regressionPlots[[sample]][["ridgePlotCC"]] <- RidgePlot(mysoWithReg, features = c("NASP", "USP1", "TUBB4B", "HMGB2", "PCNA", "TOP2A", "MCM6", "MKI67"), group.by = "Phase", ncol = 4)
@@ -1272,7 +1324,7 @@ plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nro
 ### Save Data
 
 ```{r save_data}
-file2save <- sprintf("preprocessed.%s.rds", Sys.Date())
+file2save <- sprintf("preprocessed.%s.%s.rds", projectName, Sys.Date())
 print(sprintf("Saving preprocessed data in individual objects in %s", file2save))
 saveRDS(preProcExptsList, file = paste(directory$rda, file2save, sep = "/"))
 ```
