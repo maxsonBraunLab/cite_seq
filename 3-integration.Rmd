@@ -1,0 +1,117 @@
+---
+title: "Integrate Seurat Objects"
+author: "WYashar & TLusardi"
+date: "02/03/2021"
+output:
+  html_document:
+    code_folding: hide
+    theme: cerulean
+    toc: yes
+    toc_float:
+      collapsed: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+### Set-Up
+
+#### Libraries 
+
+```{r setup_libs, include=TRUE}
+library(Seurat)
+```
+
+#### Varibles
+
+##### Update according to your dataset
+
+```{r setup_variables, include=TRUE}
+
+# Samples to process named by their treatment conditions
+samples2process = c("dmso", "quzi", "ory", "combo")
+
+# Name of the single cell project
+projectName <- "flt3_aml"
+
+# Date that Seurat object with pre-processed data was generated
+importDate <- "2021-02-15"
+
+# Set the baseline condition
+baseline <- "dmso"
+
+# Determines whether or not to regress by cell cycle in scaling step 
+cellCycleRegression <- TRUE
+```
+
+#### Inherent Variables
+
+```{r setup_inherent_variables, include=TRUE}
+
+# Specify directory paths
+directory = list(raw = "./data/raw",
+                 rda = "./data/rda")
+
+# Load Seurat objects
+exptsList <- readRDS(sprintf("%s/clustered_by_sample.%s.%s.rds", directory$rda, projectName, importDate))
+
+# Needed to avoid error in getGlobalsandPackges 
+options(future.globals.maxSize= 5000*1024^2)
+```
+
+### Integration
+
+``` {r integrate, include=TRUE}
+
+# Count the number of unique features per experiment
+allFeatures <- NULL
+
+for (sample in names(exptsList)) {
+  allFeatures <- unique(c(allFeatures, rownames(exptsList[[sample]])))
+}
+
+# Select most variable features for integration
+intFeatures <- SelectIntegrationFeatures(object.list = exptsList, 
+                                        nfeatures = length(allFeatures),
+                                        fvf.nfeatures = allFeatures, 
+                                        assay = rep("SCT", 4))
+
+# Calculate Pearson Residuals
+preppedExptsList <- PrepSCTIntegration(object.list = exptsList, 
+                              anchor.features = intFeatures,
+                              verbose = FALSE, 
+                              assay = rep("SCT", 4))
+
+# Identify integration anchors
+ref <- which(names(exptsList) == baseline)
+intAnchors <- FindIntegrationAnchors(object.list = preppedExptsList, 
+                                     normalization.method = "SCT",
+                                     k.anchor = 20,
+                                     assay = rep("SCT", 4),
+                                     reference = ref, 
+                                     scale = FALSE,
+                                     anchor.features = intFeatures, 
+                                     verbose = FALSE)
+
+# Integrate selected data
+integratedSO <- IntegrateData(anchorset = intAnchors, 
+                              normalization.method = "SCT",
+                              verbose = FALSE, 
+                              new.assay.name = "Integrated")
+
+exptsList[['integrated']] <- integratedSO
+```
+
+### Save Data
+
+```{r save_data, include=TRUE}
+file2save <- sprintf("integrated.%s.%s.rds", projectName, Sys.Date())
+print(sprintf("Saving preprocessed individual samples and the integrated object in %s", file2save))
+saveRDS(exptsList, file = paste(directory$rda, file2save, sep = "/"))
+```
+
+### Session Information
+```{r session_info, include=TRUE}
+sessionInfo()
+```
