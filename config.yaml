@@ -1,0 +1,54 @@
+# 0 general info --------------------------------------------------------------
+authors:
+  - first_author
+  - second_author
+  - pi_1
+  - pi_2
+
+# 1 preprocessing -------------------------------------------------------------
+title: Patient samples treated with control versus drug
+
+# analysis setup
+samples2process:
+  - dmso
+  - ory
+
+projectName: "my_project"
+
+# save or don't save seurat object with cell cycle regression
+cellCycleRegression: TRUE # TRUE or FALSE
+
+metadataQuants:
+  - 0
+  - 0.25
+  - 0.5
+  - 0.75
+  - 0.95
+  - 1
+
+# filtering criteria
+percentMitoFilt: 25
+nCountMinFilt: 200
+nCountMaxFilt: 25000
+
+# principle components to calculate for each sample
+nPCs: 150
+
+# visualize cell cycle states versus expression level of these cell cycle genes.
+cc_genes:
+  - NASP
+  - USP1
+  - TUBB4B
+  - HMGB2
+  - PCNA
+  - TOP2A
+  - MCM6
+  - MKI67
+
+# 2 cluster by sample ---------------------------------------------------------
+
+# 3 integration ---------------------------------------------------------------
+
+# 4 cluster all samples -------------------------------------------------------
+
+# 5 cluster annotation --------------------------------------------------------
