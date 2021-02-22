@@ -1,4 +1,7 @@
 # 0 general info --------------------------------------------------------------
+
+title: Patient samples treated with control versus drug
+
 authors:
   - first_author
   - second_author
@@ -6,18 +9,19 @@ authors:
   - pi_2
 
 # 1 preprocessing -------------------------------------------------------------
-title: Patient samples treated with control versus drug
 
-# analysis setup
+# list the names of your samples to process.
 samples2process:
   - dmso
   - ory
 
+# give the analysis a name.
 projectName: "my_project"
 
 # save or don't save seurat object with cell cycle regression
 cellCycleRegression: TRUE # TRUE or FALSE
 
+# See QC metrics at these percentiles.
 metadataQuants:
   - 0
   - 0.25
@@ -46,6 +50,12 @@ cc_genes:
   - MKI67
 
 # 2 cluster by sample ---------------------------------------------------------
+
+# Set the baseline condition
+baseline: "dmso"
+
+# number of principal components to use for FindIntegrationAnchors and IntegrateData.
+integration_anchor_PC: 150
 
 # 3 integration ---------------------------------------------------------------
 
