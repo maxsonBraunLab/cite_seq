@@ -1,4 +1,4 @@
-# 0 general info --------------------------------------------------------------
+# 0 general info ------------------------------------------------------------------------
 
 title: Patient samples treated with control versus drug
 
@@ -8,7 +8,13 @@ authors:
   - pi_1
   - pi_2
 
-# 1 preprocessing -------------------------------------------------------------
+# number of cores to utilize
+cores: 8
+
+# tracks the beginning of an analysis. This value is preserved across all stages of the analysis.
+date: "2021-02-22" # YYYY-MM-DD
+
+# 1 preprocessing -----------------------------------------------------------------------
 
 # list the names of your samples to process.
 samples2process:
@@ -31,9 +37,9 @@ metadataQuants:
   - 1
 
 # filtering criteria
-percentMitoFilt: 25
-nCountMinFilt: 200
-nCountMaxFilt: 25000
+percentMitoFilt: 15
+nCountMinFilt: 2000
+nCountMaxFilt: 20000
 
 # principle components to calculate for each sample
 nPCs: 150
@@ -49,7 +55,7 @@ cc_genes:
   - MCM6
   - MKI67
 
-# 2 cluster by sample ---------------------------------------------------------
+# 2 integration ------------------------------------------------------------------------
 
 # Set the baseline condition
 baseline: "dmso"
@@ -57,8 +63,9 @@ baseline: "dmso"
 # number of principal components to use for FindIntegrationAnchors and IntegrateData.
 integration_anchor_PC: 150
 
-# 3 integration ---------------------------------------------------------------
+# how many neighbors (k) to use when picking anchors
+k.anchor: 5
 
-# 4 cluster all samples -------------------------------------------------------
+# 3 clustering- -------------------------------------------------------------------------
 
-# 5 cluster annotation --------------------------------------------------------
+# 4 cluster annotation ------------------------------------------------------------------

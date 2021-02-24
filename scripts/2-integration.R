@@ -1,33 +1,14 @@
----
-date: "`r Sys.Date()`"
-output:
-  html_document:
-    code_folding: hide
-    theme: cerulean
-    toc: yes
-    toc_float:
-      collapsed: yes
----
-
-```{r setup, include=FALSE}
+## ----setup, include=FALSE-----------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
-```
 
-# Set-Up
 
-## Libraries 
-
-```{r setup_libs, include=TRUE}
+## ----setup_libs, include=TRUE-------------------------------------------------
 library(Seurat)
 library(yaml)
 library(future)
-```
 
-# Variables
 
-## Update according to your dataset
-
-```{r setup_variables, include=TRUE}
+## ----setup_variables, include=TRUE--------------------------------------------
 
 config_file <- read_yaml("config.yaml")
 
@@ -54,18 +35,8 @@ k.anchor <- config_file$`k.anchor`
 doc_title <- paste(config_file$title, "- sample clustering")
 author_list <- paste(config_file$authors, collapse = ", ")
 
-# number of cores to use
-plan("multiprocess", workers = config_file$cores)
-```
 
----
-title: "`r doc_title`"
-author: "`r author_list`"
----
-
-## Inherent Variables
-
-```{r setup_inherent_variables, include=TRUE}
+## ----setup_inherent_variables, include=TRUE-----------------------------------
 
 # Specify directory paths
 directory = list(raw = "./data/raw",
@@ -76,10 +47,9 @@ exptsList <- readRDS(importRDS)
 
 # Needed to avoid error in getGlobalsandPackges 
 options(future.globals.maxSize= 5000*1024^2)
-```
 
-# Integration
-```{r integrate, include=TRUE}
+
+## ----integrate, include=TRUE--------------------------------------------------
 
 # Collect non-redudant list of features across all samples
 allFeatures <- NULL
@@ -122,16 +92,14 @@ integratedSO <- IntegrateData(anchorset = intAnchors,
 integratedSO <- RunPCA(integratedSO, npcs = nDims, verbose = FALSE)
 
 exptsList[['integrated']] <- integratedSO
-```
 
-# Save Data
-```{r save_data, include=TRUE}
+
+## ----save_data, include=TRUE--------------------------------------------------
 file2save <- sprintf("integrated.%s.%s.rds", projectName, Sys.Date())
 print(sprintf("Saving preprocessed individual samples and the integrated object in %s", file2save))
 saveRDS(exptsList, file = paste(directory$rda, file2save, sep = "/"))
-```
 
-# Session Information
-```{r session_info, include=TRUE}
+
+## ----session_info, include=TRUE-----------------------------------------------
 sessionInfo()
-```
+
