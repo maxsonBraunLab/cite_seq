@@ -33,36 +33,11 @@ library(yaml)
 library(tibble)
 ```
 
-## Directories
-
-```{r setup_directories}
-
-# Set up relative directory paths
-directory = list(raw = "./data/raw",
-                 rda = "./data/rda")
-
-# If raw exists, continue, otherwise, exit.
-if (!dir.exists(directory$raw)) {
-  message(sprintf("ERROR: source directory does not exist %s", directory$raw))
-  knitr::knit_exit()
-}
-
-# If rda does not exist, create it
-if (!dir.exists(directory$rda)) {
-  dir.create(directory$rda)
-  if (!dir.exists(directory$rda)) {
-    message(sprintf("ERROR: could not create directory %s", directory$rds))
-    knitr::knit_exit()
-  }
-}
-```
-
 ## Variables
 
 ### Update according to your dataset
 
 ```{r setup_variables, warnings=F}
-
 config_file <- read_yaml("config.yaml")
 
 # Samples to process named by their treatment conditions
@@ -134,20 +109,18 @@ summary_table <- function(samples2process, summVar, indentation, col.names) {
     cat("\n")
   }
 }
+
+theme_set(theme_clean())
 ```
 
 # Read in CellRanger data by sample
 
 ```{r cellranger_data}
 
-# Get a list of directories with data
-sampleDirs <- list.dirs(path = directory$raw, full.names = FALSE, recursive = FALSE)
-
 for (sample in samples2process) {
   
   # Load in CellRanger Data
-  myData = Read10X(data.dir = sprintf("%s/%s/outs/filtered_feature_bc_matrix", directory$raw, sampleDirs[which(sampleDirs %in% sample)]))
-  
+  myData = Read10X(data.dir = paste0("data/raw/", sample, "/outs/filtered_feature_bc_matrix") )
   # Gene Expression matrix
   gex <- myData$`Gene Expression`
   
@@ -305,8 +278,7 @@ integratedMetadata %>%
         geom_bar(alpha = 0.7) +
         xlab("Sample") +
         ylab("Number of Cells") +
-        stat_count(geom = "text", colour = "grey30", size = 8, aes(label = ..count..),position=position_stack(vjust=1.10)) +
-        theme_clean()
+        stat_count(geom = "text", colour = "grey30", size = 8, aes(label = ..count..),position=position_stack(vjust=1.10))
 ```
 
 ## Number of Counts per Cell
@@ -323,8 +295,7 @@ integratedMetadata %>%
         ggtitle("Distribution of Counts Detected per Cell (Density)") +
         xlab(summVarDesc) +
         ylab("Density") +
-        geom_vline(xintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") + 
-        theme_clean()
+        geom_vline(xintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") 
 
 # Visualize the distribution of genes detected per cell via boxplot
 integratedMetadata %>%
@@ -337,8 +308,7 @@ integratedMetadata %>%
         xlab("Sample") +
         ylab(summVarDesc) +
         geom_violin(alpha = 0.1) +
-        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
-        theme_clean()
+        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
 ```
 
 ### Summary table {.tabset}
@@ -362,8 +332,7 @@ integratedMetadata %>%
         ggtitle("Distribution of Genes Detected per Cell (Density)") +
         xlab(summVarDesc) +
         ylab("Density") +
-        geom_vline(xintercept = integratedMetadataQuants[,"nFeature_RNA"], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
-        theme_clean()
+        geom_vline(xintercept = integratedMetadataQuants[,"nFeature_RNA"], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
 
 integratedMetadata %>%
         ggplot(aes(x=orig.ident, y=.data[[summVar]], fill=orig.ident, color = orig.ident)) +
@@ -375,8 +344,7 @@ integratedMetadata %>%
         xlab("Sample") +
         ylab(summVarDesc) +
         geom_violin(alpha = 0.1) +
-        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
-        theme_clean()
+        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
 ```
 
 ### Summary table {.tabset}
@@ -397,8 +365,7 @@ integratedMetadata %>%
         geom_vline(xintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
         ggtitle("Distribution of Mito GE per Cell (Density)") +
         xlab(summVarDesc) +
-        ylab("Density") +
-        theme_clean()
+        ylab("Density")
 
 integratedMetadata %>%
         ggplot(aes(x=orig.ident, y=.data[[summVar]], fill=orig.ident, color = orig.ident)) +
@@ -409,8 +376,7 @@ integratedMetadata %>%
         ggtitle("Distribution of Mito GE per Cell (Boxplot)") +
         xlab("Sample") +
         geom_violin(alpha = 0.1) +
-        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
-        theme_clean()
+        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
 ```
 
 ### Summary table {.tabset}
@@ -433,8 +399,7 @@ integratedMetadata %>%
         ggtitle("Correlation Between Genes Detected and Number of Counts") +
         xlab("Number of Counts") +
         ylab("Number of Genes") +
-        facet_wrap(~orig.ident) +
-        theme_clean()
+        facet_wrap(~orig.ident)
 ```
 
 ## Distribution of Gene Expression Complexity
@@ -450,8 +415,7 @@ integratedMetadata %>%
         geom_vline(xintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
         ggtitle("Gene Complexity") +
         xlab(summVarDesc) +
-        ylab("Density") +
-        theme_clean()
+        ylab("Density")
 ```
 
 ### Summary table {.tabset}
@@ -475,8 +439,7 @@ integratedMetadata %>%
         geom_vline(xintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
         ggtitle("ADT Counts per Cell (Density)") +
         xlab(summVarDesc) +
-        ylab("Density") +
-        theme_clean()
+        ylab("Density")
 
 integratedMetadata %>%
         ggplot(aes(x=orig.ident, y=.data[[summVar]], fill=orig.ident, color=orig.ident)) +
@@ -489,8 +452,7 @@ integratedMetadata %>%
         ylab(summVarDesc) +
         geom_violin(alpha = 0.1) +
         scale_y_log10() +
-        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
-        theme_clean()
+        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
 ```
 
 ### Summary Table {.tabset}
@@ -512,8 +474,7 @@ integratedMetadata %>%
         ggtitle("Distribution of CITE-seq Antibodies per Cell (Density)") +
         xlab(summVarDesc) +
         ylab("Density") +
-        geom_vline(xintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
-        theme_clean()
+        geom_vline(xintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
 
 integratedMetadata %>%
         ggplot(aes(x=orig.ident, y=.data[[summVar]], fill=orig.ident, color=orig.ident)) +
@@ -526,8 +487,7 @@ integratedMetadata %>%
         ylab(summVarDesc) +
         geom_violin(alpha = 0.1) +
         scale_y_log10() +
-        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
-        theme_clean()
+        geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
 ```
 
 ### Summary Table {.tabset}
@@ -548,8 +508,7 @@ integratedMetadata %>%
         geom_density(alpha = 0.2) +
         geom_vline(xintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30") +
         xlab(summVarDesc) +
-        ylab("Density") +
-        theme_clean()
+        ylab("Density")
 ```
 
 ### Summary Table {.tabset}
@@ -571,7 +530,7 @@ for (sample in names(exptsList)) {
   # Filter high and low RNA count cells
   settingsList[["step_filter"]][["nCountMinFilt"]] <- nCountMinFilt
   settingsList[["step_filter"]][["nCountMaxFilt"]] <- nCountMaxFilt
-  nFeatFilt <- sum(myso@meta.data$nCountRNA < nCountMinFilt | myso@meta.data$nCountRNA > nCountMaxFilt)
+  nFeatFilt <- sum(myso@meta.data$nCount_RNA < nCountMinFilt) + sum(myso@meta.data$nCount_RNA > nCountMaxFilt)
   print(sprintf("%s:  Filter cells with %i > nCount > %i: %i/%i (%.1f%%)",
                 sample, nCountMinFilt, nCountMaxFilt, nFeatFilt, ncol(myso), nFeatFilt/ncol(myso)*100))
   # Add settings info to the object under "misc"
@@ -637,17 +596,9 @@ for (i in c(samples2process)) {
       scale_y_discrete(position = "right") +
       scale_fill_viridis()
   }
-  plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3)
+  print(plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3))
   cat("\n")
 }
-```
-
-# Save Data
-
-```{r save_data}
-file2save <- sprintf("preprocessed.%s.%s.rds", projectName, Sys.Date())
-print(sprintf("Saving preprocessed data in individual objects in %s", file2save))
-saveRDS(preProcExptsList, file = paste(directory$rda, file2save, sep = "/"))
 ```
 
 # Session Info

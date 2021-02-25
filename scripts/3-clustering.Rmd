@@ -15,9 +15,9 @@ output:
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
-### Set-Up
+# Set-Up
 
-#### Libraries 
+## Libraries 
 
 ```{r setup_libs}
 library(Seurat)
@@ -32,22 +32,26 @@ library(circlize)
 library(ComplexHeatmap)
 library(ggthemes)
 library(viridis)
+library(yaml)
+library(tibble)
 ```
 
-#### Varibles
+## Variables
 
-##### Update according to your dataset
+## Update according to your dataset
 
 ```{r setup_variables}
 
+config_file <- read_yaml("config.yaml")
+
 # Samples to process named by their treatment conditions
-samples2process = c("dmso", "quzi", "ory", "combo")
+samples2process <- config_file$samples2process
 
 # Name of the single cell project
-projectName <- "flt3_aml"
+projectName <- config_file$projectName
 
 # Date that Seurat object with pre-processed data was generated
-importDate <- "2021-02-16"
+importRDS <- list.files("data/rda", pattern="*integrated*", full.names=TRUE)[1] # this is temporary workaround. This will change to the output of preprocess once in snakemake format.
 
 # Clustering Resolution
 clusRes <- list()
@@ -61,7 +65,7 @@ clusRes[['integrated']] <- 0.5
 nDims <- 150
 ```
 
-##### Inherent Variables
+## Inherent Variables
 
 ```{r setup_inherent_variables}
 
@@ -76,7 +80,7 @@ exptsList <- readRDS(sprintf("%s/integrated.%s.%s.rds", directory$rda, projectNa
 clusExptsList <- list()
 ```
 
-### Identify UMAP Clustering Variables
+# Identify UMAP Clustering Variables
 
 ``` {r id_umap_vars}
 # Perform linear dimensional reduction (UMAP) on myso object
@@ -126,7 +130,14 @@ for (sample in names(exptsList)) {
 }
 ```
 
-### UMAP Variable Plots {.tabset}
+# UMAP Variable Plots {.tabset}
+
+```{r results='asis'}
+for (sample in samples2process) {
+  cat( paste(rep("#", 2), toupper(sample)) )
+  plot(plotList[sample][["plotPercentExplained"]])
+}
+```
 
 `r i <- 1`
 #### `r toupper(names(exptsList)[i])`

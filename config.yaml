@@ -1,23 +1,33 @@
-# 0 general info --------------------------------------------------------------
+# 0 general info ------------------------------------------------------------------------
+
+title: Patient samples treated with control versus drug
+
 authors:
   - first_author
   - second_author
   - pi_1
   - pi_2
 
-# 1 preprocessing -------------------------------------------------------------
-title: Patient samples treated with control versus drug
+# number of cores to utilize
+cores: 8
 
-# analysis setup
+# tracks the beginning of an analysis. This value is preserved across all stages of the analysis.
+date: "2021-02-22" # YYYY-MM-DD
+
+# 1 preprocessing -----------------------------------------------------------------------
+
+# list the names of your samples to process.
 samples2process:
   - dmso
   - ory
 
+# give the analysis a name.
 projectName: "my_project"
 
 # save or don't save seurat object with cell cycle regression
 cellCycleRegression: TRUE # TRUE or FALSE
 
+# See QC metrics at these percentiles.
 metadataQuants:
   - 0
   - 0.25
@@ -27,9 +37,9 @@ metadataQuants:
   - 1
 
 # filtering criteria
-percentMitoFilt: 25
-nCountMinFilt: 200
-nCountMaxFilt: 25000
+percentMitoFilt: 15
+nCountMinFilt: 2000
+nCountMaxFilt: 20000
 
 # principle components to calculate for each sample
 nPCs: 150
@@ -45,10 +55,17 @@ cc_genes:
   - MCM6
   - MKI67
 
-# 2 cluster by sample ---------------------------------------------------------
+# 2 integration ------------------------------------------------------------------------
 
-# 3 integration ---------------------------------------------------------------
+# Set the baseline condition
+baseline: "dmso"
 
-# 4 cluster all samples -------------------------------------------------------
+# number of principal components to use for FindIntegrationAnchors and IntegrateData.
+integration_anchor_PC: 150
 
-# 5 cluster annotation --------------------------------------------------------
+# how many neighbors (k) to use when picking anchors
+k.anchor: 5
+
+# 3 clustering- -------------------------------------------------------------------------
+
+# 4 cluster annotation ------------------------------------------------------------------

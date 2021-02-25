@@ -1,0 +1,134 @@
+---
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide
+    theme: cerulean
+    toc: yes
+    toc_float:
+      collapsed: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Set-Up
+
+## Libraries 
+
+```{r setup_libs, include=TRUE}
+library(Seurat)
+library(yaml)
+library(future)
+```
+
+# Variables
+
+## Update according to your dataset
+
+```{r setup_variables, include=TRUE}
+
+config_file <- read_yaml("config.yaml")
+
+# Samples to process named by their treatment conditions
+samples2process <- config_file$samples2process
+
+# Name of the single cell project
+projectName <- config_file$projectName
+
+# Date that Seurat object with pre-processed data was generated
+# importDate <- "2021-02-12" 
+
+importRDS <- list.files("data/rda", pattern="*preprocess*", full.names=TRUE)[1] # this is temporary workaround. This will change to the output of preprocess once in snakemake format.
+
+# Set the baseline condition
+baseline <- config_file$baseline
+
+# Number of dimensions to reduce on
+nDims <- config_file$integration_anchor_PC
+
+# how many neighbors (k) to use when picking anchors
+k.anchor <- config_file$`k.anchor`
+
+doc_title <- paste(config_file$title, "- sample clustering")
+author_list <- paste(config_file$authors, collapse = ", ")
+```
+
+---
+title: "`r doc_title`"
+author: "`r author_list`"
+---
+
+## Inherent Variables
+
+```{r setup_inherent_variables, include=TRUE}
+
+# Specify directory paths
+directory = list(raw = "./data/raw",
+                 rda = "./data/rda")
+
+# Load Seurat objects
+exptsList <- readRDS(importRDS)
+
+# Needed to avoid error in getGlobalsandPackges 
+options(future.globals.maxSize= 5000*1024^2)
+```
+
+# Integration
+```{r integrate, include=TRUE}
+
+# Collect non-redudant list of features across all samples
+allFeatures <- NULL
+
+for (sample in names(exptsList)) {
+  allFeatures <- unique(  c(allFeatures, rownames(exptsList[[sample]]))  )
+}
+
+# Select most variable features for integration
+intFeatures <- SelectIntegrationFeatures(object.list = exptsList, 
+                                        nfeatures = length(allFeatures),
+                                        fvf.nfeatures = allFeatures, 
+                                        assay = rep( "SCT", length(samples2process)) )
+
+# Calculate Pearson Residuals
+preppedExptsList <- PrepSCTIntegration(object.list = exptsList, 
+                              anchor.features = intFeatures,
+                              verbose = FALSE, 
+                              assay = rep( "SCT", length(samples2process)) )
+
+# Identify integration anchors
+ref <- which(names(exptsList) == baseline)
+intAnchors <- FindIntegrationAnchors(object.list = preppedExptsList, 
+                                     normalization.method = "SCT",
+                                     k.anchor = k.anchor,
+                                     assay = rep("SCT", length(samples2process)),
+                                     reference = ref, 
+                                     dims = 1:nDims,
+                                     anchor.features = intFeatures, 
+                                     verbose = TRUE)
+
+# Integrate selected data
+integratedSO <- IntegrateData(anchorset = intAnchors, 
+                              normalization.method = "SCT",
+                              dims = 1:nDims,
+                              verbose = TRUE, 
+                              new.assay.name = "Integrated")
+
+# Run PCA on the integrated object
+integratedSO <- RunPCA(integratedSO, npcs = nDims, verbose = FALSE)
+
+exptsList[['integrated']] <- integratedSO
+```
+
+# Save Data
+```{r save_data, include=TRUE}
+file2save <- sprintf("integrated.%s.%s.rds", projectName, Sys.Date())
+print(sprintf("Saving preprocessed individual samples and the integrated object in %s", file2save))
+saveRDS(exptsList, file = paste(directory$rda, file2save, sep = "/"))
+```
+
+# Session Information
+```{r session_info, include=TRUE}
+sessionInfo()
+```
