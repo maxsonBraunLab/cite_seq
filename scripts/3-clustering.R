@@ -11,49 +11,58 @@ library(networkD3)
 library(patchwork)
 library(dplyr)
 library(clustree)
-library(circlize)
-library(ComplexHeatmap)
 library(ggthemes)
 library(viridis)
 library(yaml)
 library(tibble)
+library(future)
 
 
 ## ----setup_variables----------------------------------------------------------
 
-config_file <- read_yaml("config.yaml")
-
-# Samples to process named by their treatment conditions
-samples2process <- config_file$samples2process
-
 # Name of the single cell project
-projectName <- config_file$projectName
+projectName <- snakemake@config$projectName
 
-# Date that Seurat object with pre-processed data was generated
-importRDS <- list.files("data/rda", pattern="*integrated*", full.names=TRUE)[1] # this is temporary workaround. This will change to the output of preprocess once in snakemake format.
+doc_title <- paste(snakemake@config$title, "- clustering")
+author_list <- paste(snakemake@config$authors, collapse = ", ")
 
 # Clustering Resolution
-clusRes <- list()
-clusRes[[samples2process[1]]] <- 0.9
-clusRes[[samples2process[2]]] <- 0.8
-clusRes[[samples2process[3]]] <- 1.0
-clusRes[[samples2process[4]]] <- 0.6
-clusRes[['integrated']] <- 0.5
+
+clusRes <- lapply(names(snakemake@config$resolutions), function(x) {snakemake@config$resolutions[[x]]}) # resolution values (floats)
+names(clusRes) <- names(snakemake@config$resolutions) # map sample name to resolution
 
 # Number of dimensions to reduce on
-nDims <- 150
+nDims <- snakemake@config$nDims
+
+# check if resolutions > 2
+if (any(clusRes > 2)) {
+  stop("Cluster resolution is > 2")
+}
+
+# define cores
+plan("multiprocess", workers = snakemake@threads) # no need to set seed despite random number generator warnings.
+
+# Create plot that explains variance by Principle Components (PCs) to find the dimensionality
+percentExplained <- function( seuratObject ){
+  return(cumsum(seuratObject@reductions$pca@stdev^2)/seuratObject@reductions$pca@misc$total.variance)
+}
+
+plotPercentExplained <- function( seuratObject , ndims = nDims) {
+    data.use <- percentExplained( seuratObject )
+    plot <- ggplot(data = data.frame(dims = 1:ndims, var = data.use[1:ndims])) +
+            geom_point(mapping = aes_string(x = 'dims', y = 'var')) + labs( y = "% variance explained", x = "PC") +
+            ggtitle(sprintf("Variance Explained by Principle Components in %s", sample)) +
+            theme_clean()
+    return(plot)
+}
 
 
 ## ----setup_inherent_variables-------------------------------------------------
 
-# Specify directory paths
-directory = list(raw = "./data/raw",
-                 rda = "./data/rda")
-
 # Load Seurat objects
-exptsList <- readRDS(sprintf("%s/integrated.%s.%s.rds", directory$rda, projectName,importDate))
+exptsList <- readRDS(snakemake@input[[1]])
 
-# Clustered variables list
+# Clustered variables list. Each SO contains cluster information.
 clusExptsList <- list()
 
 
@@ -67,26 +76,12 @@ for (sample in names(exptsList)) {
   
   sampleAssay <- ifelse(sample=='integrated', "Integrated_snn_res." ,"SCT_snn_res.")
   
-  # Create plot that explains variance by Principle Components (PCs) to find the dimensionality
-  percentExplained <- function( seuratObject ){
-     return(cumsum(seuratObject@reductions$pca@stdev^2)/seuratObject@reductions$pca@misc$total.variance)
-  }
-  
-  plotPercentExplained <- function( seuratObject , ndims = nDims) {
-      data.use <- percentExplained( seuratObject )
-      plot <- ggplot(data = data.frame(dims = 1:ndims, var = data.use[1:ndims])) +
-              geom_point(mapping = aes_string(x = 'dims', y = 'var')) + labs( y = "% variance explained", x = "PC") +
-              ggtitle(sprintf("Variance Explained by Principle Components in %s", sample)) +
-              theme_clean()
-      return(plot)
-  }
-  
-  plotList[[sample]][["plotPercentExplained"]] <- plotPercentExplained(myso)
+  plotList[[sample]][["plotPercentExplained"]] <- plotPercentExplained(myso, ndims = nDims)
   
   # Cluster the cells over a range of resolutions
   myso <- FindNeighbors(object = myso, dims = 1:nDims, verbose = FALSE)
   myso <- myso %>%
-    FindClusters(resolution = seq(0,2,0.1), verbose = FALSE) %>%
+    FindClusters(resolution = seq(0.1, 2, 0.1), verbose = FALSE) %>%
     RunUMAP(dims = 1:nDims, verbose = FALSE)
   
   # Add UMAP embedding
@@ -104,76 +99,29 @@ for (sample in names(exptsList)) {
   
 }
 
+rm(myso)
+
+
 
 ## ----results='asis'-----------------------------------------------------------
-for (sample in samples2process) {
-  cat( paste(rep("#", 2), toupper(sample)) )
-  plot(plotList[sample][["plotPercentExplained"]])
-}
+# for (i in names(exptsList)) {
+#   cat(paste( "##", toupper(i), "\n\n" ))
 
+#   cat("### Percent Variance Explained by PC\n")
+#   plot(plotList[[i]][["plotPercentExplained"]])
+#   cat("\n\n---\n\n")
 
-## -----------------------------------------------------------------------------
-plot(plotList[[names(exptsList)[i]]][["plotPercentExplained"]])
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustree"]]
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustreeOverlay"]]
-
-
-## -----------------------------------------------------------------------------
-plot(plotList[[names(exptsList)[i]]][["plotPercentExplained"]])
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustree"]]
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustreeOverlay"]]
-
-
-## -----------------------------------------------------------------------------
-plot(plotList[[names(exptsList)[i]]][["plotPercentExplained"]])
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustree"]]
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustreeOverlay"]]
-
-
-## -----------------------------------------------------------------------------
-plot(plotList[[names(exptsList)[i]]][["plotPercentExplained"]])
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustree"]]
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustreeOverlay"]]
-
-
-## -----------------------------------------------------------------------------
-plot(plotList[[names(exptsList)[i]]][["plotPercentExplained"]])
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustree"]]
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["clustreeOverlay"]]
+#   cat("### Clustree Hierarchy\n")
+#   plot(plotList[[i]][["clustree"]])
+#   cat("\n\n---\n\n")
+ 
+#   cat("### Clustree Overlay\n")
+#   plot(plotList[[i]][["clustreeOverlay"]])
+#   cat("\n\n---\n\n")
+# }
 
 
 ## ----umap---------------------------------------------------------------------
-plostList <- list()
 
 for (sample in names(exptsList)) {
   
@@ -195,32 +143,20 @@ for (sample in names(exptsList)) {
   clusExptsList[[sample]] <- myso
 }
 
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["umap"]]
+rm(myso)
 
 
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["umap"]]
+## ----results='asis'-----------------------------------------------------------
+# for (i in names(exptsList)) {
+#   cat(paste( "##", toupper(i), "\n" ))
 
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["umap"]]
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["umap"]]
-
-
-## -----------------------------------------------------------------------------
-plotList[[names(exptsList)[i]]][["umap"]]
-
+#   cat("\n")
+#   plot(plotList[[i]][["umap"]])
+#   cat("\n\n")
+# }
 
 ## ----save_data----------------------------------------------------------------
-file2save <- sprintf("clustered.%s.%s.rds", projectName, Sys.Date())
-print(sprintf("Saving clustered data by individual samples in %s", file2save))
-saveRDS(clusExptsList, file = paste(directory$rda, file2save, sep = "/"))
-
+saveRDS(clusExptsList, file = snakemake@output[[1]])
 
 ## ----session_info-------------------------------------------------------------
 sessionInfo()

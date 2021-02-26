@@ -19,36 +19,34 @@ library(tibble)
 
 ## ----setup_variables, warnings=F----------------------------------------------
 
-config_file <- read_yaml("./config.yaml")
-
 # Samples to process named by their treatment conditions
-samples2process <- config_file$samples2process
+samples2process <- snakemake@config$samples2process
 
 # Name of the single cell project
-projectName <- config_file$projectName
+projectName <- snakemake@config$projectName
 
 # Determines whether or not to regress by cell cycle in scaling step 
-cellCycleRegression <- config_file$cellCycleRegression
+cellCycleRegression <- snakemake@config$cellCycleRegression
 
 # List which quantiles to map onto the summary figures
-metadataQuants<- unlist(config_file$metadataQuants)
+metadataQuants<- unlist(snakemake@config$metadataQuants)
 
 # Set filtering criterion
 # Mitochondrial gene expression ratio per cell
-percentMitoFilt = config_file$percentMitoFilt
+percentMitoFilt = snakemake@config$percentMitoFilt
 
 # Minimum and maximum counts per cell
-nCountMinFilt = config_file$nCountMinFilt
-nCountMaxFilt = config_file$nCountMaxFilt
+nCountMinFilt = snakemake@config$nCountMinFilt
+nCountMaxFilt = snakemake@config$nCountMaxFilt
 
 # Set how many principle components to calculate
-nPCs <- config_file$nPCs
+nPCs <- snakemake@config$nPCs
 
 # visualize cell cycle states versus expression level of these cell cycle genes.
-cc_genes <- config_file$cc_genes
+cc_genes <- snakemake@config$cc_genes
 
-doc_title <- paste(config_file$title, '- preprocessing')
-author_list <- paste(config_file$authors, collapse = ", ")
+doc_title <- paste(snakemake@config$title, '- preprocessing')
+author_list <- paste(snakemake@config$authors, collapse = ", ")
 
 
 ## ----setup_inherent_variables-------------------------------------------------
@@ -278,7 +276,7 @@ for (sample in samples2process) {
                              verbose = FALSE)
   mysoWithReg <- RunPCA(mysoWithReg, npcs = nPCs, verbose = FALSE)
   # Ridge plot of cell cycle genes
-  regressionPlots[[sample]][["ridgePlotCC"]] <- RidgePlot(mysoWithReg, features = cc_genes, group.by = "Phase", ncol = length(config_file$cc_genes) / 2)
+  regressionPlots[[sample]][["ridgePlotCC"]] <- RidgePlot(mysoWithReg, features = cc_genes, group.by = "Phase", ncol = length(snakemake@config$cc_genes) / 2)
   # Plot PCAs Pre- and Post- Cell Cycle Regression
   regressionPlots[[sample]][['pcaPreCCR']] <- DimPlot(mysoNoReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
   regressionPlots[[sample]][['pcaPostCCR']] <- DimPlot(mysoWithReg, reduction = "pca", group.by = "Phase", split.by = "Phase")

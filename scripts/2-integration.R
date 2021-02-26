@@ -10,40 +10,29 @@ library(future)
 
 ## ----setup_variables, include=TRUE--------------------------------------------
 
-config_file <- read_yaml("config.yaml")
-
 # Samples to process named by their treatment conditions
-samples2process <- config_file$samples2process
+samples2process <- snakemake@config$samples2process
 
 # Name of the single cell project
-projectName <- config_file$projectName
-
-# Date that Seurat object with pre-processed data was generated
-# importDate <- "2021-02-12" 
-
-importRDS <- list.files("data/rda", pattern="*preprocess*", full.names=TRUE)[1] # this is temporary workaround. This will change to the output of preprocess once in snakemake format.
+projectName <- snakemake@config$projectName
 
 # Set the baseline condition
-baseline <- config_file$baseline
+baseline <- snakemake@config$baseline
 
 # Number of dimensions to reduce on
-nDims <- config_file$integration_anchor_PC
+nDims <- snakemake@config$integration_anchor_PC
 
 # how many neighbors (k) to use when picking anchors
-k.anchor <- config_file$`k.anchor`
+k.anchor <- snakemake@config$`k.anchor`
 
-doc_title <- paste(config_file$title, "- sample clustering")
-author_list <- paste(config_file$authors, collapse = ", ")
+doc_title <- paste(snakemake@config$title, "- sample clustering")
+author_list <- paste(snakemake@config$authors, collapse = ", ")
 
 
 ## ----setup_inherent_variables, include=TRUE-----------------------------------
 
-# Specify directory paths
-directory = list(raw = "./data/raw",
-                 rda = "./data/rda")
-
 # Load Seurat objects
-exptsList <- readRDS(importRDS)
+exptsList <- readRDS(snakemake@input[[1]])
 
 # Needed to avoid error in getGlobalsandPackges 
 options(future.globals.maxSize= 5000*1024^2)
@@ -95,9 +84,8 @@ exptsList[['integrated']] <- integratedSO
 
 
 ## ----save_data, include=TRUE--------------------------------------------------
-file2save <- sprintf("integrated.%s.%s.rds", projectName, Sys.Date())
-print(sprintf("Saving preprocessed individual samples and the integrated object in %s", file2save))
-saveRDS(exptsList, file = paste(directory$rda, file2save, sep = "/"))
+print(  sprintf("Saving preprocessed individual samples and the integrated object in %s", snakemake@output[[1]]) )
+saveRDS(exptsList, file = snakemake@output[[1]])
 
 
 ## ----session_info, include=TRUE-----------------------------------------------
