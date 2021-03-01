@@ -28,13 +28,19 @@ print("time_stamp:", time_stamp)
 
 p = config["projectName"]
 
-# snakemake -j 64 --use-conda --cluster-config cluster.yaml --profile slurm
+# snakemake -j 8 --use-conda --cluster-config cluster.yaml --profile slurm
 
 rule all:
 	input:
 		# 1 - preprocessing
 		"data/reports/1-preprocessing.html",
-		"data/rda/preprocessed.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
+		"data/rda/preprocessed.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
+		# 2 - integration
+		"data/reports/2-integration.html",
+		"data/rda/integrated.{projectName}.{date}.rds".format(projectName = config["projectName"], date = time_stamp),
+		# 3 - cluster
+		"data/reports/3-cluster.html",
+		"data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
 
 rule preprocessing:
 	input:
@@ -56,22 +62,44 @@ rule preprocessing_report:
 	script:
 		"scripts/1-preprocessing.Rmd"
 
-# rule integration:
-# 	input:
-# 		rules.preprocessing.output
-# 	output:
-# 		"data/rda/integrated.{projectName}.{date}.rds".format(projectName = config["projectName"], date = time_stamp)
-# 	conda:
-# 		"envs/seurat.yaml"
-# 	script:
-# 		"scripts/2-preprocessing.R"
+rule integration:
+	input:
+		rules.preprocessing.output
+	output:
+		"data/rda/integrated.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
+	conda:
+		"envs/seurat.yaml"
+	script:
+		"scripts/2-integration.R"
 
-# rule integration_report:
-# 	input:
-# 		rules.preprocessing.output
-# 	output:
-# 		"data/rda/integrated.{projectName}.{date}.rds".format(projectName = config["projectName"], date = time_stamp)
-# 	conda:
-# 		"envs/seurat.yaml"
-# 	script:
-# 		"scripts/2-preprocessing.Rmd"
+rule integration_report:
+	input:
+		rules.preprocessing.output
+	output:
+		"data/reports/2-integration.html"
+	conda:
+		"envs/seurat.yaml"
+	script:
+		"scripts/2-integration.Rmd"
+
+rule cluster:
+	input:
+		rules.integration.output
+	output:
+		"data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
+	conda:
+		"envs/seurat.yaml"
+	threads: config["cores"]
+	script:
+		"scripts/3-clustering.R"
+
+rule cluster_report:
+	input:
+		rules.integration.output
+	output:
+		"data/reports/3-cluster.html"
+	conda:
+		"envs/seurat.yaml"
+	threads: config["cores"]
+	script:
+		"scripts/3-clustering.Rmd"
