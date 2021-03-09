@@ -10,6 +10,10 @@ library(future)
 
 ## ----setup_variables, include=TRUE--------------------------------------------
 
+# stderr to log file
+f <- file("logs/integration.err", "w")
+sink(f, type = "message")
+
 # Samples to process named by their treatment conditions
 samples2process <- snakemake@config$samples2process
 

@@ -24,7 +24,13 @@ if config["date"]:
 else:
 	time_stamp = time.strftime("%Y-%m-%d")
 
-print("time_stamp:", time_stamp)
+message("time_stamp: {}".format(time_stamp))
+
+# define output of findAllMarkers
+findAllMarkersOutput = []
+if config["findAllMarkers"]:
+	findAllMarkersOutput = expand("data/markers/{sample}-markers.txt", sample = SAMPLES)
+	findAllMarkersOutput.append("data/markers/integrated-markers.txt")
 
 p = config["projectName"]
 
@@ -37,10 +43,11 @@ rule all:
 		"data/rda/preprocessed.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
 		# 2 - integration
 		"data/reports/2-integration.html",
-		"data/rda/integrated.{projectName}.{date}.rds".format(projectName = config["projectName"], date = time_stamp),
+		"data/rda/integrated.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
 		# 3 - cluster
 		"data/reports/3-cluster.html",
-		"data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
+		"data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
+		findAllMarkersOutput
 
 rule preprocessing:
 	input:
@@ -86,7 +93,8 @@ rule cluster:
 	input:
 		rules.integration.output
 	output:
-		"data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
+		"data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
+		findAllMarkersOutput
 	conda:
 		"envs/seurat.yaml"
 	threads: config["cores"]
