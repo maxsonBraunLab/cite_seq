@@ -16,15 +16,19 @@ library(viridis)
 library(yaml)
 library(tibble)
 library(future)
+library(plotly)
+library(RColorBrewer)
+library(parallel)
 
 
 ## ----setup_variables----------------------------------------------------------
 
+# stderr to log file
+f <- file("logs/cluster.err", "w")
+sink(f, type = "message")
+
 # Name of the single cell project
 projectName <- snakemake@config$projectName
-
-doc_title <- paste(snakemake@config$title, "- clustering")
-author_list <- paste(snakemake@config$authors, collapse = ", ")
 
 # Clustering Resolution
 
@@ -56,14 +60,16 @@ plotPercentExplained <- function( seuratObject , ndims = nDims) {
     return(plot)
 }
 
+# Find all DE genes for each cluster. This will take a long time.
+doFindAllMarkers <- snakemake@config$findAllMarkers
+
+
 
 ## ----setup_inherent_variables-------------------------------------------------
 
 # Load Seurat objects
 exptsList <- readRDS(snakemake@input[[1]])
 
-# Clustered variables list. Each SO contains cluster information.
-clusExptsList <- list()
 
 
 ## ----id_umap_vars-------------------------------------------------------------
@@ -101,25 +107,7 @@ for (sample in names(exptsList)) {
 
 rm(myso)
 
-
-
-## ----results='asis'-----------------------------------------------------------
-# for (i in names(exptsList)) {
-#   cat(paste( "##", toupper(i), "\n\n" ))
-
-#   cat("### Percent Variance Explained by PC\n")
-#   plot(plotList[[i]][["plotPercentExplained"]])
-#   cat("\n\n---\n\n")
-
-#   cat("### Clustree Hierarchy\n")
-#   plot(plotList[[i]][["clustree"]])
-#   cat("\n\n---\n\n")
- 
-#   cat("### Clustree Overlay\n")
-#   plot(plotList[[i]][["clustreeOverlay"]])
-#   cat("\n\n---\n\n")
-# }
-
+plan("sequential")
 
 ## ----umap---------------------------------------------------------------------
 
@@ -133,30 +121,130 @@ for (sample in names(exptsList)) {
   myso <- myso %>%
     FindNeighbors(dims = 1:nDims, verbose = FALSE) %>%
     FindClusters(resolution = clusRes[[sample]], verbose = FALSE) %>%
-    RunUMAP(dims = 1:nDims, verbose = FALSE)
+    RunUMAP(dims = 1:nDims, verbose = FALSE, n.components = 3)
   
   # Plot and save UMAP clusters
   Idents(myso) <- myso$seurat_clusters
   plotList[[sample]][["umap"]] <- DimPlot(object = myso, reduction = 'umap', label = TRUE, label.size = 7) 
   
   # Save clustering
-  clusExptsList[[sample]] <- myso
+  exptsList[[sample]] <- myso
+}
+
+rm(myso)
+
+## -----------------------------------------------------------------------------
+
+# define umap output directory
+if (!dir.exists("data/umaps")) {
+  dir.create("data/umaps")
+}
+
+for (i in names(exptsList)) {
+
+  myso <- exptsList[[i]]
+
+  cell_meta <- merge(myso@reductions$umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
+  cell_meta <- cell_meta %>% column_to_rownames("Row.names")
+  col_scheme <- colorRampPalette(brewer.pal(8, snakemake@config$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
+
+  p <- plot_ly(cell_meta,
+          x = ~UMAP_1,
+          y = ~UMAP_2,
+          z = ~UMAP_3,
+          size = 1,
+          color = ~seurat_clusters,
+          colors = col_scheme,
+          # hover text
+          text = ~paste("Cluster:", seurat_clusters, "<br>nFeature_ADT:", nFeature_ADT, "<br>nCount_SCT:", nCount_SCT)) %>% 
+    add_markers() %>%
+    layout(title = paste(toupper(i), "UMAP Clusters"),
+           xaxis = list(title = "UMAP_1"),
+           yaxis = list(title = "UMAP_2"),
+           zaxis = list(title = "UMAP_3"))
+
+  # save and print where they are located.
+  out_file <- paste0("data/umaps/", tolower(i), "_umap.html")
+  print(paste("Sample", i, "UMAP file is located at:", out_file))
+  htmlwidgets::saveWidget(p, out_file)
 }
 
 rm(myso)
 
 
-## ----results='asis'-----------------------------------------------------------
-# for (i in names(exptsList)) {
-#   cat(paste( "##", toupper(i), "\n" ))
+## -----UMAP-by-identity--------------------------------------------------------
 
-#   cat("\n")
-#   plot(plotList[[i]][["umap"]])
-#   cat("\n\n")
-# }
+if (!dir.exists("data/umaps")) {
+  dir.create("data/umaps")
+}
+
+myso <- exptsList[["integrated"]]
+
+cell_meta <- merge(myso@reductions$umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
+cell_meta <- cell_meta %>% column_to_rownames("Row.names")
+col_scheme <- colorRampPalette(brewer.pal(8, snakemake@config$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
+
+p <- plot_ly(cell_meta,
+        x = ~UMAP_1,
+        y = ~UMAP_2,
+        z = ~UMAP_3,
+        size =1,
+        color = ~orig.ident,
+        colors = col_scheme,
+        # hover text
+        text = ~paste("Cluster:", seurat_clusters, "<br>nFeature_ADT:", nFeature_ADT, "<br>nCount_SCT:", nCount_SCT)) %>% 
+  add_markers() %>%
+  layout(title = "Integrated UMAP by Sample Identity",
+         xaxis = list(title = "UMAP_1"),
+         yaxis = list(title = "UMAP_2"),
+         zaxis = list(title = "UMAP_3"))
+
+out_file <- "data/umaps/integrated_identity_umap.html"
+print(paste("Integrated UMAP colored by sample identity is here:", out_file))
+htmlwidgets::saveWidget(p, out_file)
+
+rm(cell_meta, col_scheme, p, myso, out_file)
+
+
+
+## ----cluster_markers----------------------------------------------------------
+
+# parallelize FindAllMarkers. Share snakemake@config$cores across all samples.
+if (doFindAllMarkers) {
+
+  if (!dir.exists("data/markers")) {
+    dir.create("data/markers")
+  }
+
+  allSampleMarkers <- mclapply(names(exptsList), function(x) {
+    a <- FindAllMarkers(exptsList[[x]])
+    a
+  }, mc.cores = floor(snakemake@config$cores / length(names(exptsList))) )
+
+  names(allSampleMarkers) <- names(exptsList)
+}
+# mclapply returns results in the right order. https://stackoverflow.com/questions/14697901/is-mclapply-guaranteed-to-return-its-results-in-order
+
+# make plots and export tables
+if (doFindAllMarkers) {
+  plotList <- list()
+
+  for (sample in names(allSampleMarkers)) {
+    # j is all DE genes per cluster for an individual sample
+    j <- allSampleMarkers[[sample]]
+    top <- j %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+    plotList[[sample]][['topMarkerHeatmap']] <- DoHeatmap(exptsList[[sample]], features = top$gene) + NoLegend()
+    # export allMarkers for each sample and heatmap
+    write.table(j, file = paste0("data/markers/", sample, "-markers.txt"), row.names = TRUE, sep = "\t", quote = FALSE)
+    png(paste0("data/markers/", sample, "_heatmap.png"), width = 16, height = 9, units = "in", res = 300)
+    plotList[[sample]][['topMarkerHeatmap']]
+    dev.off()
+  }
+}
 
 ## ----save_data----------------------------------------------------------------
-saveRDS(clusExptsList, file = snakemake@output[[1]])
+print(  sprintf("Saving preprocessed individual samples and the integrated object in %s", snakemake@output[[1]]) )
+saveRDS(exptsList, file = snakemake@output[[1]])
 
 ## ----session_info-------------------------------------------------------------
 sessionInfo()

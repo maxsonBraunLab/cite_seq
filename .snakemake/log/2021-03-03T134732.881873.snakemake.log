@@ -1,0 +1,3 @@
+TypeError in line 27 of /home/groups/MaxsonLab/kongg/github/cite_seq/Snakefile:
+message() takes 1 positional argument but 2 were given
+  File "/home/groups/MaxsonLab/kongg/github/cite_seq/Snakefile", line 27, in <module>

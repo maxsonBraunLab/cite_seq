@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 # Set-Up
 
-## Libraries 
+## Libraries
 
 ```{r setup_libs}
 library(Seurat)
@@ -32,6 +32,9 @@ library(viridis)
 library(yaml)
 library(tibble)
 library(future)
+library(plotly)
+library(RColorBrewer)
+library(parallel)
 ```
 
 ## Variables
@@ -39,6 +42,10 @@ library(future)
 ## Update according to your dataset
 
 ```{r setup_variables}
+
+# stderr to log file
+f <- file("logs/cluster_report.err", "w")
+sink(f, type = "message")
 
 # Name of the single cell project
 projectName <- snakemake@config$projectName
@@ -75,6 +82,10 @@ plotPercentExplained <- function( seuratObject , ndims = nDims) {
             theme_clean()
     return(plot)
 }
+
+# Find all DE genes for each cluster. This will take a long time.
+doFindAllMarkers <- snakemake@config$findAllMarkers
+
 ```
 
 ---
@@ -89,8 +100,6 @@ author: "`r author_list`"
 # Load Seurat objects
 exptsList <- readRDS(snakemake@input[[1]])
 
-# Clustered variables list
-clusExptsList <- list()
 ```
 
 # Identify UMAP Clustering Variables
@@ -130,6 +139,7 @@ for (sample in names(exptsList)) {
 
 rm(myso)
 
+plan("sequential")
 ```
 
 # UMAP Parameters per Sample {.tabset}
@@ -166,14 +176,14 @@ for (sample in names(exptsList)) {
   myso <- myso %>%
     FindNeighbors(dims = 1:nDims, verbose = FALSE) %>%
     FindClusters(resolution = clusRes[[sample]], verbose = FALSE) %>%
-    RunUMAP(dims = 1:nDims, verbose = FALSE)
+    RunUMAP(dims = 1:nDims, verbose = FALSE, n.components = 3)
   
   # Plot and save UMAP clusters
   Idents(myso) <- myso$seurat_clusters
   plotList[[sample]][["umap"]] <- DimPlot(object = myso, reduction = 'umap', label = TRUE, label.size = 7) 
   
   # Save clustering
-  clusExptsList[[sample]] <- myso
+  exptsList[[sample]] <- myso
 }
 
 rm(myso)
@@ -189,6 +199,133 @@ for (i in names(exptsList)) {
   plot(plotList[[i]][["umap"]])
   cat("\n\n")
 }
+```
+
+# UMAP by Clusters
+
+```{r}
+
+# define umap output directory
+if (!dir.exists("data/umaps")) {
+  dir.create("data/umaps")
+}
+
+for (i in names(exptsList)) {
+
+  myso <- exptsList[[i]]
+
+  cell_meta <- merge(myso@reductions$umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
+  cell_meta <- cell_meta %>% column_to_rownames("Row.names")
+  col_scheme <- colorRampPalette(brewer.pal(8, snakemake@config$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
+
+  p <- plot_ly(cell_meta,
+          x = ~UMAP_1,
+          y = ~UMAP_2,
+          z = ~UMAP_3,
+          size = 1,
+          color = ~seurat_clusters,
+          colors = col_scheme,
+          # hover text
+          text = ~paste("Cluster:", seurat_clusters, "<br>nFeature_ADT:", nFeature_ADT, "<br>nCount_SCT:", nCount_SCT)) %>% 
+    add_markers() %>%
+    layout(title = paste(toupper(i), "UMAP Clusters"),
+           xaxis = list(title = "UMAP_1"),
+           yaxis = list(title = "UMAP_2"),
+           zaxis = list(title = "UMAP_3"))
+
+  # save and print where they are located.
+  out_file <- paste0("data/umaps/", tolower(i), "_umap.html")
+  print(paste("Sample", i, "UMAP file is located at:", out_file))
+  # htmlwidgets::saveWidget(p, out_file) # Rmd does not output files.
+}
+
+rm(myso)
+```
+
+# Integrated UMAP by Identity
+
+```{r}
+
+if (!dir.exists("data/umaps")) {
+  dir.create("data/umaps")
+}
+
+myso <- exptsList[["integrated"]]
+
+cell_meta <- merge(myso@reductions$umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
+cell_meta <- cell_meta %>% column_to_rownames("Row.names")
+col_scheme <- colorRampPalette(brewer.pal(8, snakemake@config$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
+
+p <- plot_ly(cell_meta,
+        x = ~UMAP_1,
+        y = ~UMAP_2,
+        z = ~UMAP_3,
+        size =1,
+        color = ~orig.ident,
+        colors = col_scheme,
+        # hover text
+        text = ~paste("Cluster:", seurat_clusters, "<br>nFeature_ADT:", nFeature_ADT, "<br>nCount_SCT:", nCount_SCT)) %>% 
+  add_markers() %>%
+  layout(title = "Integrated UMAP by Sample Identity",
+         xaxis = list(title = "UMAP_1"),
+         yaxis = list(title = "UMAP_2"),
+         zaxis = list(title = "UMAP_3"))
+
+out_file <- "data/umaps/integrated_identity_umap.html"
+print(paste("Integrated UMAP colored by sample identity is here:", out_file))
+htmlwidgets::saveWidget(p, out_file)
+
+rm(cell_meta, col_scheme, p, myso, out_file)
+
+```
+
+```{r cluster_markers}
+
+# parallelize FindAllMarkers. Share snakemake@config$cores across all samples.
+if (doFindAllMarkers) {
+
+  if (!dir.exists("data/markers")) {
+  dir.create("data/markers")
+  }
+
+  allSampleMarkers <- mclapply(names(exptsList), function(x) {
+    a <- FindAllMarkers(exptsList[[x]], max.cells.per.ident = 100)
+    a
+  }, mc.cores = floor(snakemake@config$cores / length(names(exptsList))) )
+
+  names(allSampleMarkers) <- names(exptsList)
+}
+# mclapply returns results in the right order. https://stackoverflow.com/questions/14697901/is-mclapply-guaranteed-to-return-its-results-in-order
+
+# make plots and export tables
+if (doFindAllMarkers) {
+  plotList <- list()
+
+  for (sample in names(allSampleMarkers)) {
+    # j is all DE genes per cluster for an individual sample
+    j <- allSampleMarkers[[sample]]
+    top <- j %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+    plotList[[sample]][['topMarkerHeatmap']] <- DoHeatmap(exptsList[[sample]], features = top$gene) + NoLegend()
+    # export allMarkers for each sample and heatmap
+    # write.table(j, file = paste0("data/markers/", sample, "-markers.txt"), row.names = TRUE, sep = "\t", quote = FALSE)
+    # png(paste0("data/markers/", sample, "_heatmap.png"), width = 16, height = 9, units = "in", res = 300)
+    # plotList[[sample]][['topMarkerHeatmap']]
+    # dev.off()
+  }
+}
+```
+
+```{r results='asis'}
+# format the output
+if (doFindAllMarkers) {
+  cat("\n\n# Top Cluster Markers {.tabset}\n\n")
+  for (sample in names(exptsList)) {
+    cat(paste("\n\n##", toupper(sample), "\n\n"))
+    print(  plotList[[sample]][['topMarkerHeatmap']] + theme(text = element_text(size = 4, face="bold"))  )
+    cat("\n\n")
+  }
+}
+
 ```
 
 # Session Information
