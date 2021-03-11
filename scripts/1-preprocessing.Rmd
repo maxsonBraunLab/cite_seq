@@ -5,12 +5,14 @@ output:
     code_folding: hide
     theme: cerulean
     toc: yes
+    number_sections: true
+    toc_depth: 2
     toc_float:
       collapsed: yes
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 8, fig.height = 6)
 ```
 
 # Set-Up
@@ -520,6 +522,35 @@ integratedMetadata %>%
 summary_table(samples2process, "log10FeaturesPerUMI_ADT", 4, col.names = c("Percentile", "log10 Number of Antibodies per Count", "Number of Cells"))
 ```
 
+## Counts per Antibody {.tabset}
+```{r abCounts, results='asis'} 
+adt.counts.plots <- lapply(names(exptsList), function(x) {
+  myso <- exptsList[[x]]
+  metadata.adt <- merge(t(as.matrix(myso@assays$ADT@counts)), myso@meta.data, by = 0)
+  metadata.adt <- metadata.adt %>% 
+    rename("cell" = "Row.names") %>% 
+    select(cell, matches("*ab-*"))
+  metadata.adt.melt <- reshape2::melt(metadata.adt)
+  p <- ggplot(metadata.adt.melt, aes(x = variable, y = log(value + 1), fill = variable, color = variable)) +
+    geom_violin() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    ggtitle("Raw Counts per Antibody") +
+    xlab("Antibody Marker") +
+    ylab("ln(counts + 1)")
+  p
+})
+names(adt.counts.plots) <- names(exptsList)
+rm(myso)
+
+for (i in names(adt.counts.plots)) {
+  cat(paste("###", toupper(i), "\n\n"))
+
+  cat("\n\n")
+  plot(adt.counts.plots[[i]])
+  cat("\n\n")
+}
+```
+
 # Filter
 
 ```{r filter}
@@ -578,10 +609,13 @@ for (sample in samples2process) {
     preProcExptsList[[sample]] <- mysoNoReg
   }
   print(paste("Finished regressing", sample))
-  rm(myso)
-  rm(mysoWithReg)
-  rm(mysoNoReg)
 }
+
+save.image()
+rm(myso)
+rm(mysoWithReg)
+rm(mysoNoReg)
+
 ```
 
 ## Regression Plots {.tabset}
@@ -590,7 +624,9 @@ for (sample in samples2process) {
 for (i in c(samples2process)) {
   cat(paste("###", toupper(i), "\n"))
   print(regressionPlots[[i]][["ridgePlotCC"]])
+  cat("\n\n---\n\n")
   print(regressionPlots[[i]][["pcaPreCCR"]] + regressionPlots[[i]][["pcaPostCCR"]])
+  cat("\n\n---\n\n")
   heatmapList <- list()
   for (ii in seq(1,15,1)) {
     plotLabel <- paste(c("PCA", ii), collapse = "")
@@ -600,7 +636,7 @@ for (i in c(samples2process)) {
       scale_fill_viridis()
   }
   print(plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3))
-  cat("\n")
+  cat("\n\n---\n\n")
 }
 ```
 
