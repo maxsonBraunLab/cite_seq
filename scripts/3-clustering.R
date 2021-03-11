@@ -217,7 +217,7 @@ if (doFindAllMarkers) {
   }
 
   allSampleMarkers <- mclapply(names(exptsList), function(x) {
-    a <- FindAllMarkers(exptsList[[x]], max.cells.per.ident = 100)
+    a <- FindAllMarkers(exptsList[[x]])
     a
   }, mc.cores = floor(snakemake@config$cores / length(names(exptsList))) )
 
