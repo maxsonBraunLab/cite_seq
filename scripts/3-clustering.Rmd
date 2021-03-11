@@ -5,13 +5,14 @@ output:
     code_folding: hide
     theme: cerulean
     toc: yes
+    number_sections: true
     toc_depth: 2
     toc_float:
       collapsed: yes
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 8, fig.height = 6)
 ```
 
 # Set-Up
@@ -115,7 +116,11 @@ for (sample in names(exptsList)) {
   sampleAssay <- ifelse(sample=='integrated', "Integrated_snn_res." ,"SCT_snn_res.")
   
   plotList[[sample]][["plotPercentExplained"]] <- plotPercentExplained(myso, ndims = nDims)
-  
+
+  plotList[[sample]][["ElbowPlot"]] <- ElbowPlot(myso, ndims = nDims) +
+      ggtitle(paste("SD Explained by Principle Components in", sample)) +
+      theme_clean()
+
   # Cluster the cells over a range of resolutions
   myso <- FindNeighbors(object = myso, dims = 1:nDims, verbose = FALSE)
   myso <- myso %>%
@@ -150,6 +155,10 @@ for (i in names(exptsList)) {
 
   cat("### Percent Variance Explained by PC\n")
   plot(plotList[[i]][["plotPercentExplained"]])
+  cat("\n\n---\n\n")
+
+  cat("### SD Explained by PC\n")
+  plot(plotList[[i]][["ElbowPlot"]])
   cat("\n\n---\n\n")
 
   cat("### Clustree Hierarchy\n")
@@ -201,7 +210,58 @@ for (i in names(exptsList)) {
 }
 ```
 
-# UMAP by Clusters
+# ADT per Cluster - FeaturePlots {.tabset}
+```{r adtNested, results='asis'}
+# nested tabs. 
+# tab1 = samples
+# tab2 = set of antibodies
+ab_list <- rownames(exptsList[[1]]@assays$ADT@counts)
+
+for (sample in names(exptsList)) {
+  cat(paste("##", toupper(sample), "{.tabset}", "\n\n"))
+
+  for (ab in ab_list) {
+    cat(paste("###", ab, "\n\n"))
+
+    cat("\n\n")
+    plot(FeaturePlot( exptsList[[sample]], ab , pt.size = 1, label = TRUE))
+    cat("\n\n")
+
+  }
+}
+
+# export ADT all markers in one plot
+all.adt <- lapply(names(exptsList), function(x) {
+  p <- FeaturePlot(exptsList[[x]], ab_list, pt.size = 1, label = TRUE) + 
+    plot_annotation(title = paste("Antibody Markers per Cluster for", x))
+  out_file <- paste0("data/markers/ADT-per-cluster-", x, ".png")
+  # ggsave(out_file, p, device = "png", width = 16, height = 9, units = "in", dpi = 600)
+  p
+})
+names(all.adt) <- names(exptsList)
+```
+
+# ADT per Cluster - Violin Plots {.tabset}
+```{r results='asis'}
+for (i in names(exptsList)) {
+  cat(paste("##", toupper(i), "\n\n"))
+  # Wrapped violin plots of ADT per cluster per sample. Fetch metadata first.
+  metadata.adt <- merge(t(as.matrix(exptsList[[i]]@assays$ADT@counts)), exptsList[[i]]@meta.data, by = 0)
+  metadata.adt <- metadata.adt %>% 
+                      rename("cell" = "Row.names") %>% 
+                      select(cell, matches("*ab-*"), seurat_clusters)
+  metadata.adt.melt <- reshape2::melt(metadata.adt)
+  p <- ggplot(metadata.adt.melt, aes(x = variable, y = log(value + 1), fill = variable, color = variable)) +
+    geom_violin() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    facet_wrap(. ~ seurat_clusters)
+  cat("\n\n")
+  print(p)
+  cat("\n\n")
+}
+```
+
+# 3D UMAP Colored by Clusters
 
 ```{r}
 
@@ -242,7 +302,7 @@ for (i in names(exptsList)) {
 rm(myso)
 ```
 
-# Integrated UMAP by Identity
+# 3D UMAP UMAP Colored by Identity
 
 ```{r}
 
@@ -289,7 +349,7 @@ if (doFindAllMarkers) {
   }
 
   allSampleMarkers <- mclapply(names(exptsList), function(x) {
-    a <- FindAllMarkers(exptsList[[x]], max.cells.per.ident = 100)
+    a <- FindAllMarkers(exptsList[[x]])
     a
   }, mc.cores = floor(snakemake@config$cores / length(names(exptsList))) )
 
@@ -321,11 +381,11 @@ if (doFindAllMarkers) {
   cat("\n\n# Top Cluster Markers {.tabset}\n\n")
   for (sample in names(exptsList)) {
     cat(paste("\n\n##", toupper(sample), "\n\n"))
+    cat("\n\n")
     print(  plotList[[sample]][['topMarkerHeatmap']] + theme(text = element_text(size = 4, face="bold"))  )
     cat("\n\n")
   }
 }
-
 ```
 
 # Session Information
