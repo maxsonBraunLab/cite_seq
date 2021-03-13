@@ -39,75 +39,61 @@ p = config["projectName"]
 rule all:
 	input:
 		# 1 - preprocessing
-		"data/reports/1-preprocessing.html",
-		"data/rda/preprocessed.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
+		os.getcwd() + "/" + "data/reports/1-preprocessing.html",
+		os.getcwd() + "/" + "data/rda/preprocessed.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
 		# 2 - integration
-		"data/reports/2-integration.html",
-		"data/rda/integrated.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
+		os.getcwd() + "/" + "data/reports/2-integration.html",
+		os.getcwd() + "/" + "data/rda/integrated.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
 		# 3 - cluster
-		"data/reports/3-cluster.html",
-		"data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
+		os.getcwd() + "/" + "data/reports/3-cluster.html",
+		os.getcwd() + "/" + "data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
 		findAllMarkersOutput
 
 rule preprocessing:
 	input:
+		rmd = "scripts/1-preprocessing.Rmd",
 		samples = expand("data/raw/{sample}/outs/filtered_feature_bc_matrix", sample = SAMPLES)
 	output:
-		"data/rda/preprocessed.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
+		report = os.getcwd() + "/" + "data/reports/1-preprocessing.html",
+		rds = os.getcwd() + "/" + "data/rda/preprocessed.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
 	conda:
 		"envs/seurat.yaml"
-	script:
-		"scripts/1-preprocessing.R"
+	shell:
+		"""
+		Rscript -e 'rmarkdown::render( "{input.rmd}", output_file = "{output.report}", knit_root_dir = getwd(), envir = new.env(), params = list(input_samples = "{input.samples}", output_rds = "{output.rds}" ))'
+		"""
 
-rule preprocessing_report:
-	input:
-		samples = expand("data/raw/{sample}/outs/filtered_feature_bc_matrix", sample = SAMPLES)
-	output:
-		"data/reports/1-preprocessing.html"
-	conda:
-		"envs/seurat.yaml"
-	script:
-		"scripts/1-preprocessing.Rmd"
+# knit rmarkdown report with multiple outputs workaround: https://github.com/snakemake/snakemake/issues/178
+# how to use rmd params to specify input/output files: https://stackoverflow.com/questions/32479130/passing-parameters-to-r-markdown
 
 rule integration:
 	input:
-		rules.preprocessing.output
+		rmd = "scripts/2-integration.Rmd",
+		rds = rules.preprocessing.output.rds
 	output:
-		"data/rda/integrated.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
+		report = os.getcwd() + "/" + "data/reports/2-integration.html",
+		rds = os.getcwd() + "/" + "data/rda/integrated.{projectName}.{date}.rds".format(projectName = p, date = time_stamp)
 	conda:
 		"envs/seurat.yaml"
-	script:
-		"scripts/2-integration.R"
-
-rule integration_report:
-	input:
-		rules.preprocessing.output
-	output:
-		"data/reports/2-integration.html"
-	conda:
-		"envs/seurat.yaml"
-	script:
-		"scripts/2-integration.Rmd"
+	shell:
+		"""
+		Rscript -e 'rmarkdown::render( "{input.rmd}", output_file = "{output.report}", knit_root_dir = getwd(), envir = new.env(), params = list(input_rds = "{input.rds}", output_rds = "{output.rds}" ))'
+		"""
 
 rule cluster:
 	input:
-		rules.integration.output
+		rmd = "scripts/3-clustering.Rmd",
+		rds = rules.integration.output.rds
 	output:
-		"data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
-		findAllMarkersOutput
+		report = os.getcwd() + "/" + "data/reports/3-cluster.html",
+		rds = os.getcwd() + "/" + "data/rda/cluster.{projectName}.{date}.rds".format(projectName = p, date = time_stamp),
+		# 3d_plots = expand("data/umaps/{sample}_umaps.html", sample = SAMPLES),
+		# ab_plots = expand("data/markers/ADT-per-sample-{sample}.png", sample = SAMPLES),
+		# de_ident = directory("data/markers/byIdent"),
+		de_clust = findAllMarkersOutput
 	conda:
 		"envs/seurat.yaml"
-	threads: config["cores"]
-	script:
-		"scripts/3-clustering.R"
-
-rule cluster_report:
-	input:
-		rules.integration.output
-	output:
-		"data/reports/3-cluster.html"
-	conda:
-		"envs/seurat.yaml"
-	threads: config["cores"]
-	script:
-		"scripts/3-clustering.Rmd"
+	shell:
+		"""
+		Rscript -e 'rmarkdown::render( "{input.rmd}", output_file = "{output.report}", knit_root_dir = getwd(), envir = new.env(), params = list(input_rds = "{input.rds}", output_rds = "{output.rds}" ))'
+		"""

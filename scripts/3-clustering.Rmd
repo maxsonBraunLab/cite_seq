@@ -1,5 +1,10 @@
 ---
 date: "`r Sys.Date()`"
+params:
+  input_rds:
+    value: x
+  output_rds:
+    value: x
 output:
   html_document:
     code_folding: hide
@@ -45,22 +50,29 @@ library(parallel)
 ```{r setup_variables}
 
 # stderr to log file
-f <- file("logs/cluster_report.err", "w")
-sink(f, type = "message")
+f <- file("logs/cluster.log", "w")
+sink(f, type = c("output", "message"), split = TRUE)
+
+# read config file in yaml format
+if (!file.exists("config.yaml")) {
+  stop("config.yaml does not exist. Exiting the program")
+} else {
+  config_file <- read_yaml("config.yaml")
+}
 
 # Name of the single cell project
-projectName <- snakemake@config$projectName
+projectName <- config_file$projectName
 
-doc_title <- paste(snakemake@config$title, "- clustering")
-author_list <- paste(snakemake@config$authors, collapse = ", ")
+doc_title <- paste(config_file$title, "- clustering")
+author_list <- paste(config_file$authors, collapse = ", ")
 
 # Clustering Resolution
 
-clusRes <- lapply(names(snakemake@config$resolutions), function(x) {snakemake@config$resolutions[[x]]}) # resolution values (floats)
-names(clusRes) <- names(snakemake@config$resolutions) # map sample name to resolution
+clusRes <- lapply(names(config_file$resolutions), function(x) {config_file$resolutions[[x]]}) # resolution values (floats)
+names(clusRes) <- names(config_file$resolutions) # map sample name to resolution
 
 # Number of dimensions to reduce on
-nDims <- snakemake@config$nDims
+nDims <- config_file$nDims
 
 # check if resolutions > 2
 if (any(clusRes > 2)) {
@@ -68,7 +80,7 @@ if (any(clusRes > 2)) {
 }
 
 # define cores
-plan("multiprocess", workers = snakemake@threads) # no need to set seed despite random number generator warnings.
+plan("multiprocess", workers = config_file$cores) # no need to set seed despite random number generator warnings.
 
 # Create plot that explains variance by Principle Components (PCs) to find the dimensionality
 percentExplained <- function( seuratObject ){
@@ -85,7 +97,7 @@ plotPercentExplained <- function( seuratObject , ndims = nDims) {
 }
 
 # Find all DE genes for each cluster. This will take a long time.
-doFindAllMarkers <- snakemake@config$findAllMarkers
+doFindAllMarkers <- config_file$findAllMarkers
 
 ```
 
@@ -99,7 +111,7 @@ author: "`r author_list`"
 ```{r setup_inherent_variables}
 
 # Load Seurat objects
-exptsList <- readRDS(snakemake@input[[1]])
+exptsList <- readRDS(params$input_rds)
 
 ```
 
@@ -139,7 +151,6 @@ for (sample in names(exptsList)) {
                    prefix = sampleAssay,
                    x_value = "PC_1",
                    y_value = "PC_2") 
-  
 }
 
 rm(myso)
@@ -189,7 +200,7 @@ for (sample in names(exptsList)) {
   
   # Plot and save UMAP clusters
   Idents(myso) <- myso$seurat_clusters
-  plotList[[sample]][["umap"]] <- DimPlot(object = myso, reduction = 'umap', label = TRUE, label.size = 7) 
+  plotList[[sample]][["umap"]] <- DimPlot(object = myso, reduction = 'umap', label = TRUE, label.size = 7, pt.size = 1) + ggtitle(toupper(sample))
   
   # Save clustering
   exptsList[[sample]] <- myso
@@ -215,6 +226,10 @@ for (i in names(exptsList)) {
 # nested tabs. 
 # tab1 = samples
 # tab2 = set of antibodies
+
+# Normalize ADT assay
+for (sample in names(exptsList)) {  exptsList[[sample]] <- NormalizeData(exptsList[[sample]], normalization.method = "CLR", margin = 2, assay = "ADT")  }
+
 ab_list <- rownames(exptsList[[1]]@assays$ADT@counts)
 
 for (sample in names(exptsList)) {
@@ -224,7 +239,7 @@ for (sample in names(exptsList)) {
     cat(paste("###", ab, "\n\n"))
 
     cat("\n\n")
-    plot(FeaturePlot( exptsList[[sample]], ab , pt.size = 1, label = TRUE))
+    plot(FeaturePlot( exptsList[[sample]], ab , pt.size = 1, label = TRUE, label.size = 8))
     cat("\n\n")
 
   }
@@ -235,7 +250,7 @@ all.adt <- lapply(names(exptsList), function(x) {
   p <- FeaturePlot(exptsList[[x]], ab_list, pt.size = 1, label = TRUE) + 
     plot_annotation(title = paste("Antibody Markers per Cluster for", x))
   out_file <- paste0("data/markers/ADT-per-cluster-", x, ".png")
-  # ggsave(out_file, p, device = "png", width = 16, height = 9, units = "in", dpi = 600)
+  ggsave(out_file, p, device = "png", width = 16, height = 9, units = "in", dpi = 600)
   p
 })
 names(all.adt) <- names(exptsList)
@@ -246,15 +261,16 @@ names(all.adt) <- names(exptsList)
 for (i in names(exptsList)) {
   cat(paste("##", toupper(i), "\n\n"))
   # Wrapped violin plots of ADT per cluster per sample. Fetch metadata first.
-  metadata.adt <- merge(t(as.matrix(exptsList[[i]]@assays$ADT@counts)), exptsList[[i]]@meta.data, by = 0)
+  metadata.adt <- merge(t(as.matrix(exptsList[[i]]@assays$ADT@data)), exptsList[[i]]@meta.data, by = 0)
   metadata.adt <- metadata.adt %>% 
                       rename("cell" = "Row.names") %>% 
                       select(cell, matches("*ab-*"), seurat_clusters)
   metadata.adt.melt <- reshape2::melt(metadata.adt)
-  p <- ggplot(metadata.adt.melt, aes(x = variable, y = log(value + 1), fill = variable, color = variable)) +
+  p <- ggplot(metadata.adt.melt, aes(x = variable, y = value, fill = variable, color = variable)) +
     geom_violin() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    facet_wrap(. ~ seurat_clusters)
+    facet_wrap(. ~ seurat_clusters) +
+    ggtitle("ADT Levels per Cluster by Antibody")
   cat("\n\n")
   print(p)
   cat("\n\n")
@@ -276,7 +292,7 @@ for (i in names(exptsList)) {
 
   cell_meta <- merge(myso@reductions$umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
   cell_meta <- cell_meta %>% column_to_rownames("Row.names")
-  col_scheme <- colorRampPalette(brewer.pal(8, snakemake@config$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
+  col_scheme <- colorRampPalette(brewer.pal(8, config_file$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
 
   p <- plot_ly(cell_meta,
           x = ~UMAP_1,
@@ -296,13 +312,13 @@ for (i in names(exptsList)) {
   # save and print where they are located.
   out_file <- paste0("data/umaps/", tolower(i), "_umap.html")
   print(paste("Sample", i, "UMAP file is located at:", out_file))
-  # htmlwidgets::saveWidget(p, out_file) # Rmd does not output files.
+  htmlwidgets::saveWidget(p, out_file) # Rmd does not output files.
 }
 
 rm(myso)
 ```
 
-# 3D UMAP UMAP Colored by Identity
+# 3D UMAP Colored by Identity
 
 ```{r}
 
@@ -314,7 +330,7 @@ myso <- exptsList[["integrated"]]
 
 cell_meta <- merge(myso@reductions$umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
 cell_meta <- cell_meta %>% column_to_rownames("Row.names")
-col_scheme <- colorRampPalette(brewer.pal(8, snakemake@config$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
+col_scheme <- colorRampPalette(brewer.pal(8, config_file$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
 
 p <- plot_ly(cell_meta,
         x = ~UMAP_1,
@@ -341,7 +357,7 @@ rm(cell_meta, col_scheme, p, myso, out_file)
 
 ```{r cluster_markers}
 
-# parallelize FindAllMarkers. Share snakemake@config$cores across all samples.
+# parallelize FindAllMarkers. Share config_file$cores across all samples.
 if (doFindAllMarkers) {
 
   if (!dir.exists("data/markers")) {
@@ -351,7 +367,7 @@ if (doFindAllMarkers) {
   allSampleMarkers <- mclapply(names(exptsList), function(x) {
     a <- FindAllMarkers(exptsList[[x]])
     a
-  }, mc.cores = floor(snakemake@config$cores / length(names(exptsList))) )
+  }, mc.cores = floor(config_file$cores / length(names(exptsList))) )
 
   names(allSampleMarkers) <- names(exptsList)
 }
@@ -367,10 +383,10 @@ if (doFindAllMarkers) {
     top <- j %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
     plotList[[sample]][['topMarkerHeatmap']] <- DoHeatmap(exptsList[[sample]], features = top$gene) + NoLegend()
     # export allMarkers for each sample and heatmap
-    # write.table(j, file = paste0("data/markers/", sample, "-markers.txt"), row.names = TRUE, sep = "\t", quote = FALSE)
-    # png(paste0("data/markers/", sample, "_heatmap.png"), width = 16, height = 9, units = "in", res = 300)
-    # plotList[[sample]][['topMarkerHeatmap']]
-    # dev.off()
+    write.table(j, file = paste0("data/markers/", sample, "-markers.txt"), row.names = TRUE, sep = "\t", quote = FALSE)
+    png(paste0("data/markers/", sample, "_heatmap.png"), width = 16, height = 9, units = "in", res = 300)
+    plotList[[sample]][['topMarkerHeatmap']]
+    dev.off()
   }
 }
 ```
@@ -388,8 +404,13 @@ if (doFindAllMarkers) {
 }
 ```
 
-# Session Information
+# Save Data
+```{r save_data, include=TRUE}
+print(sprintf("Saving preprocessed individual samples and the integrated object in %s", params$output_rds))
+saveRDS(exptsList, file = params$output_rds)
+```
 
+# Session Information
 ```{r session_info}
 sessionInfo()
 ```

@@ -1,5 +1,10 @@
 ---
 date: "`r Sys.Date()`"
+params:
+  input_samples:
+    value: x
+  output_rds:
+    value: x
 output:
   html_document:
     code_folding: hide
@@ -33,6 +38,7 @@ library(cowplot)
 library(viridis)
 library(yaml)
 library(tibble)
+library(future)
 ```
 
 ## Variables
@@ -41,38 +47,54 @@ library(tibble)
 
 ```{r setup_variables, warnings=F}
 
-# stderr to log file
-f <- file("logs/preprocessing_report.err", "w")
-sink(f, type = "message")
+# stderr and stdout to log file
+f <- file("logs/1-preprocessing.log", "w")
+sink(f, type = c("output", "message"), split = TRUE)
+
+# read config file in yaml format
+if (!file.exists("config.yaml")) {
+  stop("config.yaml does not exist. Exiting the program")
+} else {
+  config_file <- read_yaml("config.yaml")
+}
+
+for (sample_folder in strsplit(params$input_samples, " ")[[1]]) {
+  if (!dir.exists(sample_folder)) {
+    print(paste("ERROR: could not locate folder for sample:", sample))
+    print(paste("ERROR: your sample input folder:", sample_folder))
+    print(paste("ERROR: "))
+    stop("Quitting program.")
+  }
+}
 
 # Samples to process named by their treatment conditions
-samples2process <- snakemake@config$samples2process
+samples2process <- config_file$samples2process
 
 # Name of the single cell project
-projectName <- snakemake@config$projectName
+projectName <- config_file$projectName
 
 # Determines whether or not to regress by cell cycle in scaling step 
-cellCycleRegression <- snakemake@config$cellCycleRegression
+cellCycleRegression <- config_file$cellCycleRegression
 
 # List which quantiles to map onto the summary figures
-metadataQuants<- unlist(snakemake@config$metadataQuants)
+metadataQuants<- unlist(config_file$metadataQuants)
 
 # Set filtering criterion
 # Mitochondrial gene expression ratio per cell
-percentMitoFilt = snakemake@config$percentMitoFilt
+percentMitoFilt = config_file$percentMitoFilt
 
 # Minimum and maximum counts per cell
-nCountMinFilt = snakemake@config$nCountMinFilt
-nCountMaxFilt = snakemake@config$nCountMaxFilt
+nCountMinFilt = config_file$nCountMinFilt
+nCountMaxFilt = config_file$nCountMaxFilt
 
 # Set how many principle components to calculate
-nPCs <- snakemake@config$nPCs
+nPCs <- config_file$nPCs
 
 # visualize cell cycle states versus expression level of these cell cycle genes.
-cc_genes <- snakemake@config$cc_genes
+cc_genes <- config_file$cc_genes
 
-doc_title <- paste(snakemake@config$title, '- preprocessing')
-author_list <- paste(snakemake@config$authors, collapse = ", ")
+doc_title <- paste(config_file$title, '- preprocessing')
+author_list <- paste(config_file$authors, collapse = ", ")
 ```
 
 ---
@@ -123,9 +145,9 @@ theme_set(theme_clean())
 ```{r cellranger_data}
 
 for (sample in samples2process) {
-  
+
   # Load in CellRanger Data
-  myData = Read10X(data.dir = paste0("data/raw/", sample, "/outs/filtered_feature_bc_matrix") )
+  myData = Read10X(data.dir = paste0("data/raw/", sample, "/outs/filtered_feature_bc_matrix"))
   # Gene Expression matrix
   gex <- myData$`Gene Expression`
   
@@ -314,6 +336,7 @@ integratedMetadata %>%
         ylab(summVarDesc) +
         geom_violin(alpha = 0.1) +
         geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
+save(list=ls(), file="mylocals.Rda") # load() this file
 ```
 
 ### Summary table {.tabset}
@@ -572,13 +595,18 @@ for (sample in names(exptsList)) {
   myso <- subset(myso, subset = nCount_RNA > nCountMinFilt & nCount_RNA < nCountMaxFilt & percentMito < percentMitoFilt)
   print(sprintf("Filtered %s:  %i cells, %i features remaining", sample, dim(myso)[1], dim(myso)[1]))
   preProcExptsList[[sample]] <- myso
-  rm(myso) # remove seurat object from workspace.
 }
+
+rm(myso) # remove seurat object from workspace.
+
 ```
 
 # Normalize & Scale
 
 ```{r, cc_diff_regression}
+options(future.globals.maxSize = 32 * 1024^3)
+plan("multiprocess", workers = config_file$cores) # no need to set seed despite random number generator warnings.
+
 s_genes <- cc.genes.updated.2019$s.genes
 g2m_genes <- cc.genes.updated.2019$g2m.genes
 
@@ -598,7 +626,7 @@ for (sample in samples2process) {
                              verbose = FALSE)
   mysoWithReg <- RunPCA(mysoWithReg, npcs = nPCs, verbose = FALSE)
   # Ridge plot of cell cycle genes
-  regressionPlots[[sample]][["ridgePlotCC"]] <- RidgePlot(mysoWithReg, features = cc_genes, group.by = "Phase", ncol = length(snakemake@config$cc_genes) / 2)
+  regressionPlots[[sample]][["ridgePlotCC"]] <- RidgePlot(mysoWithReg, features = cc_genes, group.by = "Phase", ncol = length(config_file$cc_genes) / 2)
   # Plot PCAs Pre- and Post- Cell Cycle Regression
   regressionPlots[[sample]][['pcaPreCCR']] <- DimPlot(mysoNoReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
   regressionPlots[[sample]][['pcaPostCCR']] <- DimPlot(mysoWithReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
@@ -611,7 +639,6 @@ for (sample in samples2process) {
   print(paste("Finished regressing", sample))
 }
 
-save.image()
 rm(myso)
 rm(mysoWithReg)
 rm(mysoNoReg)
@@ -638,6 +665,12 @@ for (i in c(samples2process)) {
   print(plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3))
   cat("\n\n---\n\n")
 }
+```
+
+# Save Data
+```{r}
+print(sprintf("Saving preprocessed data in individual objects in %s", params$output_rds ))
+saveRDS( preProcExptsList, file = params$output_rds )
 ```
 
 # Session Info
