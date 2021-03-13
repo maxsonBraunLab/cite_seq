@@ -36,9 +36,9 @@ One HTML report for each of the following steps:
 
 ## 5 - cluster annotation
 
-## Miscellaneous
+# Methods
 
-​	* Differential genes by cluster table
+![method_rulegraph](rulegraph.svg)
 
 # Reference
 
