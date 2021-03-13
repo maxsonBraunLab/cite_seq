@@ -61,7 +61,7 @@ cc_genes:
 baseline: "dmso"
 
 # number of principal components to use for FindIntegrationAnchors and IntegrateData.
-integration_anchor_PC: 150
+integration_anchor_PC: 50
 
 # how many neighbors (k) to use when picking anchors
 k.anchor: 5
@@ -73,10 +73,10 @@ k.anchor: 5
 resolutions:
   dmso: 0.7
   ory: 0.5
-  integrated: 0.4
+  integrated: 0.2
 
 # number of PCs to run PCA, UMAP, and ElbowPlot on.
-nDims: 100
+nDims: 50
 
 # Find all DE genes for each cluster. This will take a long time.
 findAllMarkers: FALSE # [TRUE, FALSE]
@@ -84,4 +84,3 @@ findAllMarkers: FALSE # [TRUE, FALSE]
 # select a rcolorbrewer palette for cluster colors.
 # Ideally use a qualitative or diverging color scheme.
 rcolorbrewer_palette: "Spectral"
-
