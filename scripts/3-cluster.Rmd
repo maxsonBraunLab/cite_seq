@@ -49,19 +49,12 @@ library(parallel)
 
 ```{r setup_variables}
 
-# stderr to log file
-f <- file("logs/cluster.log", "w")
-sink(f, type = c("output", "message"), split = TRUE)
-
 # read config file in yaml format
 if (!file.exists("config.yaml")) {
   stop("config.yaml does not exist. Exiting the program")
 } else {
   config_file <- read_yaml("config.yaml")
 }
-
-# Name of the single cell project
-projectName <- config_file$projectName
 
 doc_title <- paste(config_file$title, "- clustering")
 author_list <- paste(config_file$authors, collapse = ", ")
@@ -82,23 +75,9 @@ if (any(clusRes > 2)) {
 # define cores
 plan("multiprocess", workers = config_file$cores) # no need to set seed despite random number generator warnings.
 
-# Create plot that explains variance by Principle Components (PCs) to find the dimensionality
-percentExplained <- function( seuratObject ){
-  return(cumsum(seuratObject@reductions$pca@stdev^2)/seuratObject@reductions$pca@misc$total.variance)
-}
+ab_list <- config_file$antibody_list
 
-plotPercentExplained <- function( seuratObject , ndims = nDims) {
-    data.use <- percentExplained( seuratObject )
-    plot <- ggplot(data = data.frame(dims = 1:ndims, var = data.use[1:ndims])) +
-            geom_point(mapping = aes_string(x = 'dims', y = 'var')) + labs( y = "% variance explained", x = "PC") +
-            ggtitle(sprintf("Variance Explained by Principle Components in %s", sample)) +
-            theme_clean()
-    return(plot)
-}
-
-# Find all DE genes for each cluster. This will take a long time.
-doFindAllMarkers <- config_file$findAllMarkers
-
+feature_plot_list <- config_file$FeaturePlotList
 ```
 
 ---
@@ -113,11 +92,24 @@ author: "`r author_list`"
 # Load Seurat objects
 exptsList <- readRDS(params$input_rds)
 
+# Create plot that explains variance by Principle Components (PCs) to find the dimensionality
+percentExplained <- function( seuratObject ){
+  return(cumsum(seuratObject@reductions$pca@stdev^2)/seuratObject@reductions$pca@misc$total.variance)
+}
+
+plotPercentExplained <- function( seuratObject , ndims = nDims) {
+  data.use <- percentExplained( seuratObject )
+  plot <- ggplot(data = data.frame(dims = 1:ndims, var = data.use[1:ndims])) +
+            geom_point(mapping = aes_string(x = 'dims', y = 'var')) + labs( y = "% variance explained", x = "PC") +
+            ggtitle(sprintf("Variance Explained by Principle Components in %s", sample)) +
+            theme_clean()
+  return(plot)
+}
 ```
 
 # Identify UMAP Clustering Variables
 
-``` {r id_umap_vars}
+```{r id_umap_vars}
 # Perform linear dimensional reduction (UMAP) on myso object
 plotList <- list()
 
@@ -130,8 +122,8 @@ for (sample in names(exptsList)) {
   plotList[[sample]][["plotPercentExplained"]] <- plotPercentExplained(myso, ndims = nDims)
 
   plotList[[sample]][["ElbowPlot"]] <- ElbowPlot(myso, ndims = nDims) +
-      ggtitle(paste("SD Explained by Principle Components in", sample)) +
-      theme_clean()
+                                          ggtitle(paste("SD Explained by Principle Components in", sample)) +
+                                          theme_clean()
 
   # Cluster the cells over a range of resolutions
   myso <- FindNeighbors(object = myso, dims = 1:nDims, verbose = FALSE)
@@ -148,9 +140,9 @@ for (sample in names(exptsList)) {
   plotList[[sample]][["clustree"]] <- clustree(myso, prefix = sampleAssay) 
   
   plotList[[sample]][["clustreeOverlay"]] <- clustree_overlay(x = myso[[]],
-                   prefix = sampleAssay,
-                   x_value = "PC_1",
-                   y_value = "PC_2") 
+                                                              prefix = sampleAssay,
+                                                              x_value = "PC_1",
+                                                              y_value = "PC_2") 
 }
 
 rm(myso)
@@ -160,7 +152,7 @@ plan("sequential")
 
 # UMAP Parameters per Sample {.tabset}
 
-```{r results='asis'}
+```{r umap_params, results='asis'}
 for (i in names(exptsList)) {
   cat(paste( "##", toupper(i), "\n\n" ))
 
@@ -210,8 +202,7 @@ rm(myso)
 ```
 
 # UMAP Plots {.tabset}
-
-```{r results='asis'}
+```{r umap_plots, results='asis'}
 for (i in names(exptsList)) {
   cat(paste( "##", toupper(i), "\n" ))
 
@@ -221,8 +212,36 @@ for (i in names(exptsList)) {
 }
 ```
 
-# ADT per Cluster - FeaturePlots {.tabset}
-```{r adtNested, results='asis'}
+# Custom Feature Plots {.tabset}
+```{r rnaFeaturePlot, results='asis'}
+
+# Fetch list of viable genes per each sample (subscriptable_genes).
+# Remove any genes from original list from subscriptable_genes.
+# Append to filtered list of genes, then unlist and unique.
+feature_plot_list_filtered <- list()
+for (sample in names(exptsList)) {
+  subscriptable_genes <- colnames( FetchData(exptsList[[sample]], vars = c("ident", feature_plot_list)) )
+  subscriptable_genes <- try({feature_plot_list[feature_plot_list %in% subscriptable_genes]}, silent = TRUE)
+  feature_plot_list_filtered <- append(feature_plot_list_filtered, subscriptable_genes)
+}
+feature_plot_list_filtered <- unique(unlist(feature_plot_list_filtered))
+
+for (sample in names(exptsList)) {
+  cat(paste("##", toupper(sample), "{.tabset}", "\n\n"))
+  DefaultAssay(exptsList[[sample]]) <- "RNA"
+
+  for (gene in feature_plot_list_filtered) {
+    cat(paste("###", gene, "\n\n"))
+
+    cat("\n\n")
+    plot(FeaturePlot(exptsList[[sample]], gene, pt.size = 1, label = TRUE, label.size = 8))
+    cat("\n\n")
+  }
+}
+```
+
+# ADT per Cluster {.tabset}
+```{r adtFeaturePlot, results='asis'}
 # nested tabs. 
 # tab1 = samples
 # tab2 = set of antibodies
@@ -230,34 +249,51 @@ for (i in names(exptsList)) {
 # Normalize ADT assay
 for (sample in names(exptsList)) {  exptsList[[sample]] <- NormalizeData(exptsList[[sample]], normalization.method = "CLR", margin = 2, assay = "ADT")  }
 
-ab_list <- rownames(exptsList[[1]]@assays$ADT@counts)
+ab_list <- config_file$antibody_list
 
 for (sample in names(exptsList)) {
   cat(paste("##", toupper(sample), "{.tabset}", "\n\n"))
+  DefaultAssay(exptsList[[sample]]) <- "ADT"
 
   for (ab in ab_list) {
     cat(paste("###", ab, "\n\n"))
 
     cat("\n\n")
-    plot(FeaturePlot( exptsList[[sample]], ab , pt.size = 1, label = TRUE, label.size = 8))
+    plot(FeaturePlot(exptsList[[sample]], ab, pt.size = 1, label = TRUE, label.size = 8))
     cat("\n\n")
-
   }
 }
-
-# export ADT all markers in one plot
-all.adt <- lapply(names(exptsList), function(x) {
-  p <- FeaturePlot(exptsList[[x]], ab_list, pt.size = 1, label = TRUE) + 
-    plot_annotation(title = paste("Antibody Markers per Cluster for", x))
-  out_file <- paste0("data/markers/ADT-per-cluster-", x, ".png")
-  ggsave(out_file, p, device = "png", width = 16, height = 9, units = "in", dpi = 600)
-  p
-})
-names(all.adt) <- names(exptsList)
 ```
 
+# Cluster Proportions per Sample
+
+```{r clusterProp}
+exptsList[["integrated"]]@meta.data %>% 
+  group_by(seurat_clusters, orig.ident) %>% 
+  summarise(n = n()) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = seurat_clusters, y = prop, fill = orig.ident)) +
+  geom_col() +
+  ggtitle("Cell proportions per cluster") +
+  ylab("Proportions") +
+  labs(fill = "Treatment") +
+  geom_text(aes(label = round(prop * 100, 1)), position = position_stack(vjust = 0.5), color = "white", size = 4)
+
+exptsList[["integrated"]]@meta.data %>% 
+    group_by(seurat_clusters,orig.ident) %>% 
+    summarise(n = n()) %>%
+    ungroup() %>%
+    group_by(orig.ident) %>%
+    mutate(prop = n / sum(n)) %>%
+    ggplot(aes(x = orig.ident, y = prop, fill = seurat_clusters)) +
+    geom_col() +
+    ggtitle("Cluster Proportions per Sample") + 
+    geom_text(aes(label = round(prop * 100, 1)), position = position_stack(vjust = 0.2), color = "white", size = 8)
+```
+
+```{r adtCluster, results='asis'}
 # ADT per Cluster - Violin Plots {.tabset}
-```{r results='asis'}
+
 for (i in names(exptsList)) {
   cat(paste("##", toupper(i), "\n\n"))
   # Wrapped violin plots of ADT per cluster per sample. Fetch metadata first.
@@ -279,7 +315,7 @@ for (i in names(exptsList)) {
 
 # 3D UMAP Colored by Clusters
 
-```{r}
+```{r 3D_umaps}
 
 # define umap output directory
 if (!dir.exists("data/umaps")) {
@@ -305,9 +341,9 @@ for (i in names(exptsList)) {
           text = ~paste("Cluster:", seurat_clusters, "<br>nFeature_ADT:", nFeature_ADT, "<br>nCount_SCT:", nCount_SCT)) %>% 
     add_markers() %>%
     layout(title = paste(toupper(i), "UMAP Clusters"),
-           xaxis = list(title = "UMAP_1"),
-           yaxis = list(title = "UMAP_2"),
-           zaxis = list(title = "UMAP_3"))
+          xaxis = list(title = "UMAP_1"),
+          yaxis = list(title = "UMAP_2"),
+          zaxis = list(title = "UMAP_3"))
 
   # save and print where they are located.
   out_file <- paste0("data/umaps/", tolower(i), "_umap.html")
@@ -320,7 +356,7 @@ rm(myso)
 
 # 3D UMAP Colored by Identity
 
-```{r}
+```{r 3D_umaps2}
 
 if (!dir.exists("data/umaps")) {
   dir.create("data/umaps")
@@ -343,9 +379,9 @@ p <- plot_ly(cell_meta,
         text = ~paste("Cluster:", seurat_clusters, "<br>nFeature_ADT:", nFeature_ADT, "<br>nCount_SCT:", nCount_SCT)) %>% 
   add_markers() %>%
   layout(title = "Integrated UMAP by Sample Identity",
-         xaxis = list(title = "UMAP_1"),
-         yaxis = list(title = "UMAP_2"),
-         zaxis = list(title = "UMAP_3"))
+        xaxis = list(title = "UMAP_1"),
+        yaxis = list(title = "UMAP_2"),
+        zaxis = list(title = "UMAP_3"))
 
 out_file <- "data/umaps/integrated_identity_umap.html"
 print(paste("Integrated UMAP colored by sample identity is here:", out_file))
@@ -355,58 +391,9 @@ rm(cell_meta, col_scheme, p, myso, out_file)
 
 ```
 
-```{r cluster_markers}
-
-# parallelize FindAllMarkers. Share config_file$cores across all samples.
-if (doFindAllMarkers) {
-
-  if (!dir.exists("data/markers")) {
-  dir.create("data/markers")
-  }
-
-  allSampleMarkers <- mclapply(names(exptsList), function(x) {
-    a <- FindAllMarkers(exptsList[[x]])
-    a
-  }, mc.cores = floor(config_file$cores / length(names(exptsList))) )
-
-  names(allSampleMarkers) <- names(exptsList)
-}
-# mclapply returns results in the right order. https://stackoverflow.com/questions/14697901/is-mclapply-guaranteed-to-return-its-results-in-order
-
-# make plots and export tables
-if (doFindAllMarkers) {
-  plotList <- list()
-
-  for (sample in names(allSampleMarkers)) {
-    # j is all DE genes per cluster for an individual sample
-    j <- allSampleMarkers[[sample]]
-    top <- j %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
-    plotList[[sample]][['topMarkerHeatmap']] <- DoHeatmap(exptsList[[sample]], features = top$gene) + NoLegend()
-    # export allMarkers for each sample and heatmap
-    write.table(j, file = paste0("data/markers/", sample, "-markers.txt"), row.names = TRUE, sep = "\t", quote = FALSE)
-    png(paste0("data/markers/", sample, "_heatmap.png"), width = 16, height = 9, units = "in", res = 300)
-    plotList[[sample]][['topMarkerHeatmap']]
-    dev.off()
-  }
-}
-```
-
-```{r results='asis'}
-# format the output
-if (doFindAllMarkers) {
-  cat("\n\n# Top Cluster Markers {.tabset}\n\n")
-  for (sample in names(exptsList)) {
-    cat(paste("\n\n##", toupper(sample), "\n\n"))
-    cat("\n\n")
-    print(  plotList[[sample]][['topMarkerHeatmap']] + theme(text = element_text(size = 4, face="bold"))  )
-    cat("\n\n")
-  }
-}
-```
-
 # Save Data
 ```{r save_data, include=TRUE}
-print(sprintf("Saving preprocessed individual samples and the integrated object in %s", params$output_rds))
+print(paste("Saving preprocessed individual samples and the integrated object in", params$output_rds))
 saveRDS(exptsList, file = params$output_rds)
 ```
 
