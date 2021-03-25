@@ -4,13 +4,15 @@ __default__:
   nodes: 1
   partition: exacloud
   job-name: "{rule}"
-  output: "logs/{rule}/{wildcards}.out"
-  error: "logs/{rule}/{wildcards}.err"
+  output: "jobs/{rule}/%j.out"
+  error: "jobs/{rule}/%j.err"
   cpus-per-task: 8
-  mem: 8G
+  mem: 16G
 cluster:
+  time: '24:00:00'
   cpus-per-task: 20
-  mem: 128G
-cluster_report:
+  mem: 64G
+differential:
+  time: '24:00:00'
   cpus-per-task: 20
-  mem: 128G
+  mem: 64G

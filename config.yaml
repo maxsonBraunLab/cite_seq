@@ -1,6 +1,6 @@
-# 0 general info ------------------------------------------------------------------------
+# 0 general info ----------------------------------------------------------------------------------
 
-title: Patient samples treated with control versus drug
+title: Title of my project
 
 authors:
   - first_author
@@ -8,13 +8,28 @@ authors:
   - pi_1
   - pi_2
 
-# number of cores to utilize per node - never set more cores than allowed per node.
+# number of cores to utilize per node.
+# never set more cores than allowed per node (usually 24 but check the hardware specs).
 cores: 20
 
-# tracks the beginning of an analysis. This value is preserved across all stages of the analysis.
+# tracks the beginning of an analysis.
+# This value is preserved across all stages of the analysis.
 date: "2021-02-22" # YYYY-MM-DD
 
-# 1 preprocessing -----------------------------------------------------------------------
+# list out antibodies exactly as how they are labeled from cell ranger
+antibody_list:
+  - ab-CD10
+  - ab-CD34
+  - ab-CD38
+  - ab-CD45RA
+  - ab-CD90
+  - ab-CD99
+  - ab-CD123
+  - ab-CD366
+
+assembly: "hg38"
+
+# 1 preprocessing ---------------------------------------------------------------------------------
 
 # list the names of your samples to process.
 samples2process:
@@ -22,10 +37,10 @@ samples2process:
   - ory
 
 # give the analysis a name.
-projectName: "my_project"
+project_name: "my_project"
 
 # save or don't save seurat object with cell cycle regression
-cellCycleRegression: TRUE # [TRUE, FALSE]
+cell_cycle_regression: TRUE # [TRUE, FALSE]
 
 # See QC metrics at these percentiles.
 metadataQuants:
@@ -55,7 +70,7 @@ cc_genes:
   - MCM6
   - MKI67
 
-# 2 integration ------------------------------------------------------------------------
+# 2 integration -----------------------------------------------------------------------------------
 
 # Set the baseline condition
 baseline: "dmso"
@@ -66,21 +81,69 @@ integration_anchor_PC: 50
 # how many neighbors (k) to use when picking anchors
 k.anchor: 5
 
-# 3 clustering- -------------------------------------------------------------------------
+# 3 clustering- -----------------------------------------------------------------------------------
 
 # the resolution value to cluster on per sample and save to the Seurat object.
 # value should be a float between 0.1 and 2 (inclusive) with step size of 0.1
 resolutions:
-  dmso: 0.7
-  ory: 0.5
+  dmso: 0.3
+  ory: 0.3
   integrated: 0.2
 
 # number of PCs to run PCA, UMAP, and ElbowPlot on.
 nDims: 50
 
-# Find all DE genes for each cluster. This will take a long time.
-findAllMarkers: FALSE # [TRUE, FALSE]
+# List of genes to view gene expression in UMAP space
+FeaturePlotList:
+  - PROCR
+  # - HOXA9
+  - CDK6
+  - SOX4
+  - MPO
+  - ELANE
+  - CAMP
+  - CEBPE
+  - LYZ
+  - IRF8
+  # - IL2RB
+  - JCHAIN
+  - HBB-BT
+  - CAR1
+  - GATA2
+# letter casing counts! if you don't see your gene in the output, try a different casing.
+# default gene list reference: https://www.biorxiv.org/content/10.1101/2020.09.14.295295v1
 
 # select a rcolorbrewer palette for cluster colors.
 # Ideally use a qualitative or diverging color scheme.
 rcolorbrewer_palette: "Spectral"
+
+# 4 Differential Testing + Ontology ---------------------------------------------------------------
+
+# Find all DE genes for each cluster. This will take a long time.
+FindAllMarkers: FALSE # [TRUE, FALSE]
+
+# Find markers conserved in each cluster, split by a factor (e.g. identity).
+FindConservedMarkers: FALSE # [TRUE, FALSE]
+
+# Find DE genes between two identities for each cluster in the integrated object. This is quick.
+FindMarkersIdent: TRUE # [TRUE, FALSE]
+
+# all the above DE schemes follow the following configuration
+FindMarkersConfig:
+  group1: "ory"
+  group2: "dmso"
+  grouping.var: "orig.ident"
+
+# significance level for DE and GO
+significance: 0.05
+
+# filter genes using regex or FALSE for gene ontology. Case will be ignored. example:
+# "^RPS|^RPL" will remove ribosomal S and L genes
+filter_genes: FALSE
+
+# common mistakes
+# mismatch of gene casing.
+# too few cells so DE breaks
+# if you are experiencing DE problems, you can quickly debug by down-sampling cells in chunk3.
+
+

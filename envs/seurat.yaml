@@ -1,5 +1,6 @@
 name: seurat
 channels:
+  - bioconda
   - conda-forge
   - defaults
 dependencies:
@@ -8,6 +9,7 @@ dependencies:
   - _r-mutex=1.0.1=anacondar_1
   - binutils_impl_linux-64=2.35.1=h193b22a_2
   - binutils_linux-64=2.35=hc3fd857_29
+  - bioconductor-multtest
   - bwidget=1.9.11=1
   - bzip2=1.0.8=h7b6447c_0
   - c-ares=1.17.1=h27cfd23_0
@@ -140,6 +142,7 @@ dependencies:
   - r-gridextra=2.3=r40h6115d3f_1003
   - r-gtable=0.3.0=r40h6115d3f_3
   - r-gtools=3.8.2=r40hcdcec82_1
+  - r-here=1.0.1=r40hc72bb7e_0
   - r-haven=2.3.1=r40hde08347_0
   - r-hexbin=1.28.2=r40h859d828_0
   - r-highr=0.8=r40h6115d3f_2
@@ -171,6 +174,7 @@ dependencies:
   - r-mass=7.3_53=r40hcfec24a_0
   - r-matrix=1.3_2=r40he454529_0
   - r-matrixstats=0.58.0=r40hcfec24a_0
+  - r-metap
   - r-mgcv=1.8_33=r40he454529_0
   - r-mime=0.9=r40hcfec24a_1
   - r-miniui=0.1.1.1=r40h6115d3f_1002

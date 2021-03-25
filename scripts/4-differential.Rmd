@@ -1,0 +1,401 @@
+---
+date: "`r Sys.Date()`"
+params:
+  input_rds:
+    value: x
+  output_rds:
+    value: x
+output:
+  html_document:
+    code_folding: hide
+    theme: cerulean
+    toc: yes
+    number_sections: true
+    toc_depth: 2
+    toc_float:
+      collapsed: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 8, fig.height = 6)
+```
+
+# Set-Up
+
+## Libraries
+
+```{r setup_libs}
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+library(yaml)
+library(tibble)
+library(RColorBrewer)
+library(parallel)
+library(GO.db)
+library(topGO)
+library(biomaRt)
+library(GenomicFeatures)
+library(Rgraphviz)
+library(stringr)
+
+```
+
+## Variables
+
+## Update according to your dataset
+
+```{r setup_variables}
+
+if (!dir.exists("data/markers")) {
+  dir.create("data/markers")
+}
+
+# read config file in yaml format
+if (!file.exists("config.yaml")) {
+  stop("config.yaml does not exist. Exiting the program")
+} else {
+  config_file <- read_yaml("config.yaml")
+}
+
+doc_title <- paste(config_file$title, "- differential")
+author_list <- paste(config_file$authors, collapse = ", ")
+
+FindMarkersIdent <- function(so, group1, group2, group.by, cores = 8) {
+  # input: seurat object, 2 groups (identities) to compare, factor name to split groups, and number of cores.
+  # output: list of DFs. One element per cluster.
+  # method: multi-core analysis for clusters, but analyze only one sample at a time.
+  cluster_list <- levels(so@meta.data$seurat_clusters)
+  a <- mclapply(cluster_list, function(x) {
+    FindMarkers(so, 
+      subset.ident = toString(x), 
+      ident.1 = group1, 
+      ident.2 = group2, 
+      group.by = group.by)
+  }, mc.cores = cores)
+  return(a)
+}
+
+runGO <- function(desc, geneList, geneID2GO, out_table, out_tree, annot = annFUN.gene2GO) {
+  # input: small str description
+  # input: geneList is named list. name = gene name, value = 1 or 0 to mark significant DE gene
+  # input: geneID2GO is named list. name = gene name, value = list of associated GO.
+  # input: out_table is name of output table of GO results
+  # input: out_tree is name of output tree of GO results (pdf format)
+  # input: annot is topGO fx to relate genes to GO.
+  # output: out_table and out_tree
+  # source: JEstabrook
+  # method: init topGO data structure, run GO w fisher test, take df + pval adjust with BH, export results.
+  GOData <- new("topGOdata", description = desc, 
+                ontology = "BP", allGenes = geneList, 
+                annot = annFUN.gene2GO, gene2GO = geneID2GO)
+  resultFisher <- runTest(GOData, algorithm = "classic", statistic = "fisher")
+  x <- GenTable(GOData, classicFisher = resultFisher, topNodes=length(names(resultFisher@score)))
+  x <- data.frame(x)
+  pVal <- data.frame(pval=signif(resultFisher@score, 6))
+  x$enrich        <- x$Significant/x$Expected ## calculate enrichment based on what you expect by chance
+  x$p.unround     <- pVal[x$GO.ID,"pval"] ## put unrounded pvalue in the table
+  x$p.adj         <- signif(p.adjust(x$p.unround, method="BH"), 6) ## calculate the adjusted pvalue with Benjamini & Hochberg correction
+  x$log.p.adj     <- -log10(x$p.adj) ## convert adjusted p value to -log10 for plot magnitude
+  x <- x %>% arrange(p.adj)
+  write.table(x, file=out_table, sep="\t", col.names=TRUE, quote=FALSE, row.names=FALSE) ## save the table
+  printGraph(GOData, resultFisher, 
+    firstSigNodes = 5, fn.prefix = out_tree, 
+    useInfo = "all", pdfSW = TRUE)
+}
+
+exptsList <- readRDS(params$input_rds)
+
+# subsample exptsList - FOR DEVELOPMENT ONLY
+# exptsListNames <- names(exptsList)
+# exptsList <- lapply(names(exptsList), function(x) {
+#   subset(exptsList[[x]], cells = sample(colnames(exptsList[[x]]@assays$RNA@counts), 1000))
+# })
+# names(exptsList) <- exptsListNames
+# message("Cells were subsampled")
+```
+
+---
+title: "`r doc_title`"
+author: "`r author_list`"
+---
+
+```{r FindAllMarkers, results='asis'}
+
+# parallelize FindAllMarkers.
+
+if (config_file$FindAllMarkers) {
+
+  if (!dir.exists("data/markers/FindAllMarkers")) {
+    dir.create("data/markers/FindAllMarkers")
+  }
+  gc() # garbage collector sweeps unused memory
+
+  # run FindAllMarkers in parallel across samples.
+  message("Implementing FindAllMarkers")
+  results_FAM <- mclapply(names(exptsList), function(x) {
+    DefaultAssay(exptsList[[x]]) <- "RNA" # very important
+    FindAllMarkers(exptsList[[x]]) %>% filter(p_val_adj < 0.05)
+  }, mc.cores = floor(config_file$cores / length(names(exptsList))) )
+  names(results_FAM) <- names(exptsList)
+  # config_file$cores number of cores is shared across n samples
+  # mclapply returns results in the right order. 
+  # https://stackoverflow.com/questions/14697901/is-mclapply-guaranteed-to-return-its-results-in-order
+
+  # export heatmap with top 5 DE genes per cluster for each sample.
+  # out put is n images and tables as output where n = biological replicates + 1
+  plotList <- list()
+  prefix <- "data/markers/FindAllMarkers/"
+
+  # export FindAllMarkers results for each sample and plot heatmaps.
+  for (sample in names(results_FAM)) {
+    
+    write.table(
+      x = results_FAM[[sample]], 
+      file = paste0(prefix, sample, "-FindAllMarkers.tsv"), 
+      row.names = FALSE, 
+      sep = "\t", 
+      quote = FALSE)
+
+    top <- results_FAM[[sample]] %>% 
+      group_by(cluster) %>% 
+      top_n(n = 5, wt = avg_log2FC)
+
+    plotList[[sample]][['topMarkerHeatmap']] <- DoHeatmap(exptsList[[sample]], 
+                                                          features = top$gene) + 
+                                                          NoLegend()
+
+    # export allMarkers for each sample and heatmap
+    png(paste0(prefix, sample, "-heatmap.png"), width = 16, height = 9, units = "in", res = 300)
+    plotList[[sample]][['topMarkerHeatmap']]
+    dev.off()
+  }
+
+  # plot the heatmaps into the report
+  cat("\n\n# Top Cluster Markers {.tabset}\n\n")
+  for (sample in names(exptsList)) {
+    cat(paste("\n\n##", toupper(sample), "\n\n"))
+    cat("\n\n")
+    print(  plotList[[sample]][['topMarkerHeatmap']] + theme(text = element_text(size = 4, face="bold"))  )
+    cat("\n\n")
+  }
+}
+```
+
+```{r FindConservedMarkers}
+
+if (config_file$FindConservedMarkers) {
+
+  if (!dir.exists("data/markers/FindConservedMarkers")) {
+    dir.create("data/markers/FindConservedMarkers")
+  }
+  gc()
+
+  # FindConservedMarkers in parallel --------------------------------------------------------------
+  # for each sample, find conservative markers in parallel split by user's grouping var.
+  # results_FCM is split by sample containing list of DF.
+  # the length of list is clusters per sample, and the content is DF output of FindConservedMarkers.
+  message("Implementing FindConservedMarkers")
+  results_FCM <- list()
+  for (sample in names(exptsList)) {
+    DefaultAssay(exptsList[[sample]]) <- "RNA"
+    cluster_list <- levels(exptsList[[sample]]@meta.data$seurat_clusters)
+    print(paste("Processing", sample))
+
+    sample_FCM <- mclapply(cluster_list, function(x) {
+        FindConservedMarkers(object = exptsList[[sample]], ident.1 = x, 
+                              grouping.var = config_file$FindMarkersConfig$grouping.var) %>% 
+          mutate(cluster = x) %>% # add cluster col
+          rownames_to_column("gene")
+    }, mc.cores = floor(config_file$cores / length(exptsList)) )
+
+    results_FCM[[sample]] <- sample_FCM
+  }
+  rm(sample_FCM)
+
+  # for each sample, rbind all the FindConservedMarkers clusters.
+  # result is one DF per sample containing all conserved markers
+  results_FCM <- lapply(names(results_FCM), function(x) {
+    do.call("rbind", results_FCM[[x]])
+  })
+  names(results_FCM) <- names(exptsList) # same names of samples for both lists
+
+  # save output. one DF per sample + integrated sample --------------------------------------------
+  for (sample in names(results_FCM)) {
+    out_file <- paste0("data/markers/FindConservedMarkers/", sample, ".tsv")
+    write.table(
+      results_FCM[[sample]], 
+      out_file,
+      quote = FALSE,
+      sep = "\t",
+      row.names = FALSE,
+      col.names = TRUE)
+  }
+}
+```
+
+```{r FindMarkersIdent, results='asis'}
+
+if (config_file$FindMarkersIdent) {
+
+  if (!dir.exists("data/markers/FindMarkersIdent")) {
+    dir.create("data/markers/FindMarkersIdent")
+  }
+  gc()
+
+  message("Implementing FindMarkersIdent")
+  DefaultAssay(exptsList[["integrated"]]) <- "RNA"
+  results_FMI <- FindMarkersIdent(exptsList[["integrated"]], 
+    group1 = config_file$FindMarkersConfig$group1, 
+    group2 = config_file$FindMarkersConfig$group2, 
+    group.by = "orig.ident", 
+    cores = config_file$cores)
+
+  # edit column names and export DE results -------------------------------------------------------
+  # output1: contains all DE results (all_df)
+  # output2: contains all significant genes (sig_df, padj < significance)
+  # output3: contains all significant upregulated genes (up_sig, padj < significance, avg_log2FC > 0)
+  # output4: contains all significant downregulated genes (dn_sig, padj < significance, avg_log2FC < 0)
+
+  cluster_counter <- 0
+  for (i in 1:length(results_FMI)) {
+
+    all_df <- results_FMI[[i]] %>% 
+      mutate(p_val = NULL) %>%
+      rownames_to_column("gene") %>%
+      rename_with(.fn = ~paste0("pct.", config_file$FindMarkersConfig$group1), .cols = "pct.1") %>%
+      rename_with(.fn = ~paste0("pct.", config_file$FindMarkersConfig$group2), .cols = "pct.2")
+    # pct.1 column relabeled with pct.`group1` from user input
+
+    sig_df <- results_FMI[[i]] %>% 
+      mutate(p_val = NULL) %>%
+      rownames_to_column("gene") %>%
+      rename_with(.fn = ~paste0("pct.", config_file$FindMarkersConfig$group1), .cols = "pct.1") %>%
+      rename_with(.fn = ~paste0("pct.", config_file$FindMarkersConfig$group2), .cols = "pct.2") %>%
+      filter(p_val_adj < config_file$significance)
+
+    # select up and down regulated genes
+    up_sig <- sig_df %>% filter(avg_log2FC > 0)
+    dn_sig <- sig_df %>% filter(avg_log2FC < 0)
+
+    # define output files and write to them
+    prefix <- "data/markers/FindMarkersIdent/cluster"
+    all_file <- paste0(prefix, "-", cluster_counter, "-all.tsv")
+    sig_file <- paste0(prefix, "-", cluster_counter, "-sig-", config_file$significance, ".tsv")
+    up_sig_file <- paste0(prefix, "-", cluster_counter, "-up-", config_file$significance, ".tsv")
+    dn_sig_file <- paste0(prefix, "-", cluster_counter, "-down-", config_file$significance, ".tsv")
+
+    message(paste("Writing DE outputs for cluster", i))
+    write.table(all_df, all_file, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+    write.table(sig_df, sig_file, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+    write.table(up_sig, up_sig_file, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+    write.table(dn_sig, dn_sig_file, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+
+    cluster_counter <- cluster_counter + 1
+  }
+
+  # gene ontology for up and down genes per cluster  ----------------------------------------------
+  message("Running gene ontology on up and down peaks per cluster")
+  if (!dir.exists("data/markers/FindMarkersIdent/GO")) {
+    dir.create("data/markers/FindMarkersIdent/GO")
+  }
+
+  # import named list. name of list = gene name. Value is list of associated GO IDs. then
+  message("importing geneID2GO")
+  assembly <- config_file$assembly
+  if (assembly == "hg38") {
+    geneID2GO <- get(load("./anno/biomaRt/hg38.Ens_90.biomaRt.GO.external.geneID2GO.RData"))
+  } else if (assembly == "mm10") {
+    geneID2GO <- get(load("./anno/biomaRt/mm10.Ens_78.biomaRt.geneAnno.Rdata.external.geneID2GO.RData"))
+  } else {
+    stop(paste("ERROR: assembly must either be mm10 or hg38. Your input:", assembly))
+  }
+
+  # import gene universe with optional filtering
+  all_genes <- unique(names(geneID2GO))
+  if (config_file$filter_genes != FALSE) {
+    all_genes <- all_genes[-grep(config_file$filter_genes, all_genes, ignore.case = TRUE)]
+  }
+
+  # select an ensembl dataset.
+  ensembl <- useEnsembl(biomart = "ENSEMBL_MART_ENSEMBL")
+  if (assembly == "mm10") {
+    ensembl <- useDataset(dataset = "mmusculus_gene_ensembl", mart = ensembl)
+  } else if (assembly == "hg38") {
+    ensembl <- useDataset(dataset = "hsapiens_gene_ensembl", mart = ensembl)
+  } else {
+    stop("Must use either mm10 or hg38 assembly")
+  }
+  gene_id_name <- getBM(attributes = c("ensembl_gene_id", "external_gene_name"), mart = ensembl)
+
+  # import sig up and down genes.
+  deg_files <- list.files("data/markers/FindMarkersIdent", pattern = "*all.tsv", full.names = TRUE)
+
+  # loop through each cluster, read in all_df, get cluster no., identify up and down DE genes, 
+  # mark them as 1's in all_genes (gene universe), prep metadata + topGO object, run GO, 
+  # and finally output GO table and graph for each cluster split by up/down genes.
+  for (cluster in deg_files) {
+    
+    cluster_ID <- str_extract(cluster, "[0-9]+") # the cluster number, e.g. 1, 2, 3, ...
+
+    # adjust to geneID2GO db for gene name casing.
+    # hg38 is all caps  mm10 is title caps (1st char is uppercase).
+    if (assembly == "hg38") {
+      temp_deg <- read.delim(cluster, sep = "\t", header = TRUE) %>% mutate(gene = str_to_upper(gene))
+    } else if (assembly == "mm10") {
+      temp_deg <- read.delim(cluster, sep = "\t", header = TRUE) %>% mutate(gene = str_to_title(gene))
+    } else {
+      stop("ERROR: assembly must either be mm10 or hg38. And how did you escape the first conditional?")
+    }
+    
+    
+    # build named list of 0s and 1s for up and down sig genes to satisfy topGO input format.
+    # name of list = gene names. 0 = not signifiant. 1 = significant
+    up_deg <- subset(temp_deg, avg_log2FC > 0 & p_val_adj < config_file$significance)$gene
+    up.geneList <- factor(as.integer(all_genes %in% up_deg))
+    names(up.geneList) <- all_genes
+
+    dn_deg <- subset(temp_deg, avg_log2FC < 0 & p_val_adj < config_file$significance)$gene
+    dn.geneList <- factor(as.integer(all_genes %in% dn_deg))
+    names(dn.geneList) <- all_genes
+
+    # prep output files split by cluster and up/down
+    desc_up <- paste(config_file$FindMarkersConfig$group1, config_file$FindMarkersConfig$group1, "up", sep = "-")
+    tbl_up_output <- paste0("data/markers/FindMarkersIdent/GO/cluster-", cluster_ID, "-up-GO.tsv")
+    tree_up_output <- paste0("data/markers/FindMarkersIdent/GO/cluster-", cluster_ID, "-up-GO")
+
+    desc_dn <- paste(config_file$FindMarkersConfig$group1, config_file$FindMarkersConfig$group1, "down", sep = "-")
+    tbl_dn_output <- paste0("data/markers/FindMarkersIdent/GO/cluster-", cluster_ID, "-down-GO.tsv")
+    tree_dn_output <- paste0("data/markers/FindMarkersIdent/GO/cluster-", cluster_ID, "-down-GO")
+
+    print(paste("GO for cluster: ", cluster_ID))
+    print(table(up.geneList))
+    print(table(dn.geneList))
+
+    # GO for up and down DEGs if DE entries > 5
+    message(paste("Running GO for cluster", cluster_ID))
+
+    if (length(which(up.geneList == 1)) > 5) {
+      runGO(desc_up, up.geneList, 
+        geneID2GO = geneID2GO, out_table = tbl_up_output, 
+        out_tree = tree_up_output, annot = annFun.gene2GO)
+    } else {
+      message(paste("WARNING: Cluster", cluster_ID, "up-peaks had < 5 significant genes. GO aborted."))
+    }
+
+    if (length(which(dn.geneList == 1)) > 5) {
+      runGO(desc_dn, dn.geneList, 
+        geneID2GO = geneID2GO, out_table = tbl_dn_output, 
+        out_tree = tree_dn_output, annot = annFun.gene2GO)
+    } else {
+      message(paste("WARNING: Cluster", cluster_ID, "down-peaks had < 5 significant genes. GO aborted."))
+    }
+  }
+}
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

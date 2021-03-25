@@ -47,10 +47,6 @@ library(future)
 
 ```{r setup_variables, warnings=F}
 
-# stderr and stdout to log file
-f <- file("logs/1-preprocessing.log", "w")
-sink(f, type = c("output", "message"), split = TRUE)
-
 # read config file in yaml format
 if (!file.exists("config.yaml")) {
   stop("config.yaml does not exist. Exiting the program")
@@ -60,9 +56,7 @@ if (!file.exists("config.yaml")) {
 
 for (sample_folder in strsplit(params$input_samples, " ")[[1]]) {
   if (!dir.exists(sample_folder)) {
-    print(paste("ERROR: could not locate folder for sample:", sample))
-    print(paste("ERROR: your sample input folder:", sample_folder))
-    print(paste("ERROR: "))
+    print(paste("WARNING: sample input folder does not exist. Your input:", sample_folder))
     stop("Quitting program.")
   }
 }
@@ -70,11 +64,8 @@ for (sample_folder in strsplit(params$input_samples, " ")[[1]]) {
 # Samples to process named by their treatment conditions
 samples2process <- config_file$samples2process
 
-# Name of the single cell project
-projectName <- config_file$projectName
-
 # Determines whether or not to regress by cell cycle in scaling step 
-cellCycleRegression <- config_file$cellCycleRegression
+cell_cycle_regression <- config_file$cell_cycle_regression
 
 # List which quantiles to map onto the summary figures
 metadataQuants<- unlist(config_file$metadataQuants)
@@ -95,6 +86,9 @@ cc_genes <- config_file$cc_genes
 
 doc_title <- paste(config_file$title, '- preprocessing')
 author_list <- paste(config_file$authors, collapse = ", ")
+
+# list of antibodies
+ab_list <- config_file$antibody_list
 ```
 
 ---
@@ -205,7 +199,7 @@ for (sample in samples2process) {
 
   # Initialize the Seurat object with the raw (non-normalized data).
   myso <- CreateSeuratObject(counts = gex, project = sample,
-                             min.cells = min.cells, min.features = min.features)
+                              min.cells = min.cells, min.features = min.features)
   
   print(sprintf("%s treatment: %i cells in ADT matrix that are not present in gene expression matrix", sample, sum(!(colnames(adt) %in% colnames(gex)))))
   print(sprintf("%s treatment: %i cells in gene expression matrix that are not present in ADT matrix", sample, sum(!(colnames(gex) %in% colnames(adt)))))
@@ -286,7 +280,7 @@ integratedMetadata <- bind_rows(metadataList)
 # Mapped as dashed blue lines in the QC figures
 integratedMetadataNumeric <- which(sapply(integratedMetadata, is.numeric))
 integratedMetadataQuants <- sapply(integratedMetadataNumeric, function(y){
-   quantile(x=unlist(integratedMetadata[,y]),
+  quantile(x=unlist(integratedMetadata[,y]),
             metadataQuants,
             na.rm = TRUE)
 })
@@ -336,7 +330,6 @@ integratedMetadata %>%
         ylab(summVarDesc) +
         geom_violin(alpha = 0.1) +
         geom_hline(yintercept = integratedMetadataQuants[,summVar], size = 0.75, alpha = 0.5, linetype = "dashed", colour = "grey30")
-save(list=ls(), file="mylocals.Rda") # load() this file
 ```
 
 ### Summary table {.tabset}
@@ -546,20 +539,22 @@ summary_table(samples2process, "log10FeaturesPerUMI_ADT", 4, col.names = c("Perc
 ```
 
 ## Counts per Antibody {.tabset}
-```{r abCounts, results='asis'} 
+```{r abCounts, results='asis'}
 adt.counts.plots <- lapply(names(exptsList), function(x) {
+
   myso <- exptsList[[x]]
-  metadata.adt <- merge(t(as.matrix(myso@assays$ADT@counts)), myso@meta.data, by = 0)
+  metadata.adt <- reshape2::melt( FetchData(myso, ab_list, slot = "counts") )
   metadata.adt <- metadata.adt %>% 
-    rename("cell" = "Row.names") %>% 
-    select(cell, matches("*ab-*"))
-  metadata.adt.melt <- reshape2::melt(metadata.adt)
-  p <- ggplot(metadata.adt.melt, aes(x = variable, y = log(value + 1), fill = variable, color = variable)) +
+    rename("antibody" = variable) %>% 
+    rename("counts" = value)
+  
+  p <- ggplot(metadata.adt, aes(x = antibody, y = log(counts + 1), fill = antibody, color = antibody)) +
     geom_violin() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ggtitle("Raw Counts per Antibody") +
+    ggtitle("Counts per Antibody") +
     xlab("Antibody Marker") +
     ylab("ln(counts + 1)")
+
   p
 })
 names(adt.counts.plots) <- names(exptsList)
@@ -604,8 +599,6 @@ rm(myso) # remove seurat object from workspace.
 # Normalize & Scale
 
 ```{r, cc_diff_regression}
-options(future.globals.maxSize = 32 * 1024^3)
-plan("multiprocess", workers = config_file$cores) # no need to set seed despite random number generator warnings.
 
 s_genes <- cc.genes.updated.2019$s.genes
 g2m_genes <- cc.genes.updated.2019$g2m.genes
@@ -622,8 +615,8 @@ for (sample in samples2process) {
   mysoNoReg <- RunPCA(mysoNoReg, npcs = nPCs, verbose = FALSE)
   # Analyze with cell cycle regression
   mysoWithReg <- SCTransform(myso,
-                             vars.to.regress = "CC.Difference",
-                             verbose = FALSE)
+                            vars.to.regress = "CC.Difference",
+                            verbose = FALSE)
   mysoWithReg <- RunPCA(mysoWithReg, npcs = nPCs, verbose = FALSE)
   # Ridge plot of cell cycle genes
   regressionPlots[[sample]][["ridgePlotCC"]] <- RidgePlot(mysoWithReg, features = cc_genes, group.by = "Phase", ncol = length(config_file$cc_genes) / 2)
@@ -631,7 +624,7 @@ for (sample in samples2process) {
   regressionPlots[[sample]][['pcaPreCCR']] <- DimPlot(mysoNoReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
   regressionPlots[[sample]][['pcaPostCCR']] <- DimPlot(mysoWithReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
   # Save Seurat Object with cell cycle regression if indicated above
-  if (cellCycleRegression) {
+  if (cell_cycle_regression) {
     preProcExptsList[[sample]] <- mysoWithReg
   } else{
     preProcExptsList[[sample]] <- mysoNoReg
@@ -645,7 +638,7 @@ rm(mysoNoReg)
 
 ```
 
-## Regression Plots {.tabset}
+## Cell Cycle Regression Plots {.tabset}
 
 ```{r results='asis'}
 for (i in c(samples2process)) {

@@ -34,10 +34,6 @@ library(future)
 
 ```{r setup_variables, include=TRUE}
 
-# stderr to log file
-f <- file("logs/2-integration.log", "w")
-sink(f, type = c("output", "message"), split = TRUE)
-
 # read config file in yaml format
 if (!file.exists("config.yaml")) {
   stop("config.yaml does not exist. Exiting the program")
@@ -47,9 +43,6 @@ if (!file.exists("config.yaml")) {
 
 # Samples to process named by their treatment conditions
 samples2process <- config_file$samples2process
-
-# Name of the single cell project
-projectName <- config_file$projectName
 
 # Set the baseline condition
 baseline <- config_file$baseline
@@ -90,7 +83,7 @@ for (sample in names(exptsList)) {
   allFeatures <- unique(  c(allFeatures, rownames(exptsList[[sample]]))  )
 }
 
-options(future.globals.maxSize = 32 * 1024^3)
+options(future.globals.maxSize = 16 * 1024^3)
 plan("multiprocess", workers = config_file$cores) # no need to set seed despite random number generator warnings.
 
 # Select most variable features for integration
@@ -108,13 +101,13 @@ preppedExptsList <- PrepSCTIntegration(object.list = exptsList,
 # Identify integration anchors
 ref <- which(names(exptsList) == baseline)
 intAnchors <- FindIntegrationAnchors(object.list = preppedExptsList, 
-                                     normalization.method = "SCT",
-                                     k.anchor = k.anchor,
-                                     assay = rep("SCT", length(samples2process)),
-                                     reference = ref, 
-                                     dims = 1:nDims,
-                                     anchor.features = intFeatures, 
-                                     verbose = TRUE)
+                                    normalization.method = "SCT",
+                                    k.anchor = k.anchor,
+                                    assay = rep("SCT", length(samples2process)),
+                                    reference = ref, 
+                                    dims = 1:nDims,
+                                    anchor.features = intFeatures, 
+                                    verbose = TRUE)
 
 # Integrate selected data
 integratedSO <- IntegrateData(anchorset = intAnchors, 
