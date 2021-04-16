@@ -147,3 +147,18 @@ filter_genes: FALSE
 # if you are experiencing DE problems, you can quickly debug by down-sampling cells in chunk3.
 
 
+### velocity additions
+GTF_ref:
+    /home/groups/CEDAR/anno/CellRanger/GRCh38/refdata-cellranger-GRCh38-3.0.0/genes/genes.gtf
+repeat_mask:
+    /home/groups/precepts/enright/experiments/single_cell/GTF_files/hg38_repeatmask.gtf
+sam_mem:
+    50000
+seurat_cluster:
+    integrated_snn_res.0.3
+seurat_status:
+    orig.ident
+seurat_batch:
+    None
+color_dict:
+    None

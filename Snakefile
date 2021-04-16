@@ -4,7 +4,7 @@
 """ 2 - integrate will find anchors and integrate all samples into an integrated seurat object """
 """ 3 - cluster will cluster individual samples plus integrated object """
 """ 4 - differential will test for DE genes in seurat objects """
-
+""" 5 - RNAvelocity analysis will plot unspliced / spliced ratios of transcipts"""
 import os
 import sys
 import time
@@ -15,6 +15,7 @@ SAMPLES, = glob_wildcards("data/raw/{sample}")
 
 def message(m):
 	sys.stderr.write("|--- {} \n".format(m))
+
 
 for i in SAMPLES:
 	message("Samples to process: {}".format(i))
@@ -27,6 +28,7 @@ else:
 message("time_stamp: {}".format(time_stamp))
 
 p = config["project_name"]
+
 
 if not os.path.isdir("data/reports"):
 	os.mkdir("data/reports")
@@ -47,7 +49,9 @@ rule all:
 		"data/reports/3-cluster.html",
 		"data/rda/cluster.{project_name}.{date}.rds".format(project_name = p, date = time_stamp),
 		# 4 - differential
-		"data/reports/4-differential.html"
+		"data/reports/4-differential.html",
+		# 5 - RNAvelocity
+		"data/reports/5-RNAvelocity.html"
 
 rule preprocess:
 	input:
@@ -118,3 +122,7 @@ rule differential:
 		"""
 		Rscript -e 'rmarkdown::render( here::here("{input.rmd}"), output_file = here::here("{output.report}"), knit_root_dir = here::here(), envir = new.env(), params = list(input_rds = "{input.rds}" ))' > {log} 2>&1
 		"""
+		
+		
+include: "rules/velocyto.smk"
+

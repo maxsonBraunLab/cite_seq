@@ -1,0 +1,5 @@
+/data/
+submit_snakemake.sh
+/logs/
+/jobs/
+/.snakemake

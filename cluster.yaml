@@ -10,9 +10,63 @@ __default__:
   mem: 16G
 cluster:
   time: '24:00:00'
-  cpus-per-task: 20
+  c: 20
   mem: 64G
 differential:
   time: '24:00:00'
   cpus-per-task: 20
   mem: 64G
+RNAvelocity:
+    time : "24:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 8
+    mem : 200000
+loom_merge:
+    time : "12:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 1
+    mem : 15000
+seurat_to_loom:
+    time : "5:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 1
+    mem : 15000
+samtools_sort :
+    time : "6:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 4
+    mem : 128000
+scvelo :
+    time : "24:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 8
+    mem : 200000
+scvelo_batch :
+    time : "24:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 8
+    mem : 200000
+scvelo_ind :
+    time : "5:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 8
+    mem : 48000
+analyze_scvelo :
+    time : "5:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 8
+    mem : 48000
+CB_correct_ind :
+    time : "3:00:00"
+    nodes : 1
+    partition : "exacloud"
+    cpus-per-task: 8
+    mem : 48000
