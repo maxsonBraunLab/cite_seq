@@ -32,26 +32,27 @@ rule RNAvelocity:
 		velocyto run10x -m {params.repeat_mask} -@ {params.n_cores} {params.name} {params.gtf} > {log} 2>&1
 		"""
 		
-rule seurat_to_loom:
+rule seurat_convert:
 	input:
 		seurat_file=rules.cluster.output.rds
 	output: 
-		out_loom="data/looms/seurat.loom"
+		out_file="data/velocity/seurat_integrated.loom",
+		embedding_file = "data/embeddings/seurat_embeddings.tsv"
 	conda:
-		"../envs/seurat.yaml"
+		"../envs/seurat_convert.yml"
 	log:
-		"logs/seurat_to_loom.log"
+		"logs/seurat_convert.log"
 	script:
-		"../scripts/seurat2loom.R" 
+		"../scripts/seurat_convert.R" 
 		
 rule CB_correct_ind:
 	input:
 		subset_CB      		 = "data/raw/{sample}/velocyto/{sample}.loom",
-		seurat_loom    		 = "data/looms/seurat.loom"
+		seurat_convert    	 = "data/velocity/seurat_integrated.loom",
+		seurat_embedding     = "data/embeddings/seurat_embeddings.tsv"
 	output:
 		loom_out       		 = "data/velocity/{sample}/velocity.loom"
 	params:
-		indices        		 = lambda wc: Index_by_base[wc.sample],
 		subset_CB      		 = lambda wc:"{}".format(wc.sample),
 		seurat_cluster 		 = config["seurat_cluster"],
 		seurat_batch   		 = config["seurat_batch"]
@@ -80,7 +81,6 @@ rule scvelo_ind:
 	output:
 		out_object				= "data/velocity/{sample}/ind_scvelo_object.h5ad"
 	params:
-		indices 				= lambda wc: Index_by_base[wc.sample_name],
 		subset_CB				= lambda wc:"{}".format(wc.sample_name),
 		genes					= config["FeaturePlotList"],
 		seurat_cluster			= config["seurat_cluster"],
@@ -95,7 +95,7 @@ rule scvelo_ind:
 rule scvelo_batch:
 	input:
 		velocity_loom = "data/looms/sorted_merged.loom",
-		seurat_loom = "data/looms/seurat.loom"
+		seurat_loom = "data/velocity/seurat_integrated.loom"
 	output: 
 		out_object="data/velocity/scvelo_object_batch.h5ad"
 	params:
@@ -112,7 +112,7 @@ rule scvelo_batch:
 rule scvelo:
 	input:
 		velocity_loom = ancient("data/looms/sorted_merged.loom"),
-		seurat_loom = "data/looms/seurat.loom"
+		seurat_loom = "data/velocity/seurat_integrated.loom"
 	output: 
 		out_object="data/velocity/scvelo_object.h5ad"
 	params:

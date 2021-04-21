@@ -9,9 +9,10 @@ import sys
 
 curr_dir = os.getcwd()
 begin_time = datetime.datetime.now().timestamp()
-sys.stderr.write("beginning scvelo!")
+
 
 subset_CB = snakemake.params.subset_CB
+sys.stderr.write("beginning scvelo on sample: {}!\n".format(subset_CB))
 velocity_loom = snakemake.input.subset_CB
 genes_of_interest = snakemake.params.genes
 out_object = snakemake.output.out_object
@@ -39,7 +40,7 @@ scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=None)
 #first and second order moments (means and uncentered variances) computed among nearest neighbors in PCA space, computes: pca and neighbors
 scv.pp.moments(adata, n_neighbors=30,n_pcs=30)
 #default mode for velocity is stochastic,  mode = 'dynamical' and mode = "deterministic" are also available.   see https://scvelo.readthedocs.io/about.html
-scv.tl.velocity(adata)
+scv.tl.velocity(adata,  mode = 'dynamical')
 #transition probabilties calculated by cosine correlation between the potential cell-to-cell transitions
 scv.tl.velocity_graph(adata)
 scv.pl.velocity_embedding_stream(adata, basis='umap', color = 'cluster', save = "scvelo_stream.png")
@@ -48,8 +49,9 @@ scv.pl.velocity_embedding_grid(adata,basis='umap', color = 'cluster', save = "sc
 
 # timestamp
 plots_time = datetime.datetime.now().timestamp()
-sys.stderr.write("finished plots: " + str(round((plots_time-begin_time)/60/60,2)) + " hours")
+sys.stderr.write("finished plots: " + str(round((plots_time-begin_time)/60/60,2)) + " hours\n")
 
+# velocity confidence 
 scv.tl.velocity_confidence(adata)
 keys = 'velocity_length', 'velocity_confidence'
 scv.pl.scatter(adata, c=keys, cmap='coolwarm', perc=[5, 95], save = "scatter_confidence.png")
@@ -60,15 +62,6 @@ df = adata.obs.groupby('cluster')[keys].mean().T
 df.to_csv("velo_confidence_cluster.tsv",sep="\t")
 
 
-#scv.tl.velocity_pseudotime(adata)
-#scv.tl.velocity_clusters(adata, match_with = "cluster")
-#scv.pl.scatter(adata, color='velocity_clusters', save = "scatter_velo.png")
-
-#scv.tl.rank_velocity_genes(adata, groupby='cluster', min_corr=.3)
-#df = scv.DataFrame(adata.uns['rank_velocity_genes']['names'])
-#df.to_csv("rank_velocity_genes_by_cluster.tsv",sep="\t")
-
-
 for gene in genes_of_interest:
 	try:
 		scv.pl.velocity(adata,str(gene), dpi = 120, figsize = (7,5),color = 'cluster',legend_loc = 'best',save = "scatter_gene_{}.png".format(gene))
@@ -76,7 +69,7 @@ for gene in genes_of_interest:
 		sys.stderr.write("{} not included".format(gene))
 
 almost_time = datetime.datetime.now().timestamp()
-sys.stderr.write("almost finished in: " + str(round((almost_time-begin_time)/60/60,2)) + " hours")
+sys.stderr.write("almost finished in: " + str(round((almost_time-begin_time)/60/60,2)) + " hours\n")
 
 #save plot proportions
 fig = prop_plot.get_figure()

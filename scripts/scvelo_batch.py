@@ -30,12 +30,8 @@ genes_of_interest = snakemake.params.genes
 #ds = loompy.connect(seurat_loom,mode = "r") #seurat object to loom ... in r 'as.loom(seuratObj, filename = "seuratObj.loom") 
 adata = scv.read(velocity_loom)
 
-#remove cell id duplicates
-adata.obs_names_make_unique("-")
-
-non_duplicates = [x for x in adata.obs_names if "-" not in x]
-
-adata = adata[adata.obs_names.isin(non_duplicates)]
+#enforce cells unique
+adata.obs_names_make_unique("`")
 
 #make gene names unique
 adata.var_names_make_unique("-")

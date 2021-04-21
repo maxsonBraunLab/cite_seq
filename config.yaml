@@ -31,10 +31,10 @@ assembly: "hg38"
 
 # 1 preprocessing ---------------------------------------------------------------------------------
 
-# list the names of your samples to process.
+# list the names of your samples to process. MUST match symbolic linked names in data/raw
 samples2process:
-  - dmso
-  - ory
+  - flt3_aml_dmso
+  - flt3_aml_ory
 
 # give the analysis a name.
 project_name: "my_project"
@@ -72,8 +72,8 @@ cc_genes:
 
 # 2 integration -----------------------------------------------------------------------------------
 
-# Set the baseline condition
-baseline: "dmso"
+# Set the baseline condition. MUST match a sample name in data/raw
+baseline: "flt3_aml_dmso"
 
 # number of principal components to use for FindIntegrationAnchors and IntegrateData.
 integration_anchor_PC: 50
@@ -86,8 +86,8 @@ k.anchor: 5
 # the resolution value to cluster on per sample and save to the Seurat object.
 # value should be a float between 0.1 and 2 (inclusive) with step size of 0.1
 resolutions:
-  dmso: 0.3
-  ory: 0.3
+  flt3_aml_dmso: 0.3
+  flt3_aml_ory: 0.3
   integrated: 0.2
 
 # number of PCs to run PCA, UMAP, and ElbowPlot on.
@@ -130,8 +130,8 @@ FindMarkersIdent: TRUE # [TRUE, FALSE]
 
 # all the above DE schemes follow the following configuration
 FindMarkersConfig:
-  group1: "ory"
-  group2: "dmso"
+  group1: "flt3_aml_dmso"
+  group2: "flt3_aml_ory"
   grouping.var: "orig.ident"
 
 # significance level for DE and GO
@@ -145,7 +145,7 @@ filter_genes: FALSE
 # mismatch of gene casing.
 # too few cells so DE breaks
 # if you are experiencing DE problems, you can quickly debug by down-sampling cells in chunk3.
-
+# names of samples in data/raw mismatch samples2process, resolutions, baseline, and FindMarkersConfig in this config file
 
 ### velocity additions
 GTF_ref:
@@ -155,10 +155,10 @@ repeat_mask:
 sam_mem:
     50000
 seurat_cluster:
-    integrated_snn_res.0.3
+    Integrated_snn_res.0.2
 seurat_status:
     orig.ident
 seurat_batch:
-    None
+    orig.ident
 color_dict:
     None

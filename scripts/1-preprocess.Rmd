@@ -58,7 +58,11 @@ for (sample_folder in strsplit(params$input_samples, " ")[[1]]) {
   if (!dir.exists(sample_folder)) {
     print(paste("WARNING: sample input folder does not exist. Your input:", sample_folder))
     stop("Quitting program.")
-  }
+   }
+   else {
+     print(paste("Preprocessing: ", sample_folder))
+   }
+  
 }
 
 
@@ -143,8 +147,6 @@ theme_set(theme_clean())
 
 for (sample in samples2process) {
 
-  warning(getwd())
-  warning(list.files(paste0("data/raw/", sample, "/outs/filtered_feature_bc_matrix")))
 
   # Load in CellRanger Data
   myData = Read10X(data.dir = paste0("data/raw/", sample, "/outs/filtered_feature_bc_matrix"))
