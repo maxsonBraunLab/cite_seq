@@ -81,7 +81,7 @@ rule scvelo_ind:
 	output:
 		out_object				= "data/velocity/{sample}/ind_scvelo_object.h5ad"
 	params:
-		subset_CB				= lambda wc:"{}".format(wc.sample_name),
+		subset_CB				= lambda wc:"{}".format(wc.sample),
 		genes					= config["FeaturePlotList"],
 		seurat_cluster			= config["seurat_cluster"],
 		seurat_batch 			= config["seurat_batch"]

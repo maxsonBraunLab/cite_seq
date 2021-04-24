@@ -17,7 +17,7 @@ velocity_loom = snakemake.input.subset_CB
 genes_of_interest = snakemake.params.genes
 out_object = snakemake.output.out_object
 out_dir = os.path.dirname(out_object)
-indices = snakemake.params.indices
+
 
 #walkthrough
 #https://colab.research.google.com/github/theislab/scvelo_notebooks/blob/master/VelocityBasics.ipynb#scrollTo=iHl8jdCUd1j8
