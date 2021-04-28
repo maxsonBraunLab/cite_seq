@@ -149,6 +149,7 @@ rule make_html:
 	output: 
 		html="data/reports/5-RNAvelocity.html"
 	params:
+		sample_names = SAMPLES,
 		script="scripts/5-RNAvelocity.Rmd",
 		seurat=rules.cluster.output.rds,
 		seurat_status=config["seurat_status"],
@@ -162,7 +163,7 @@ rule make_html:
 		"logs/velocity/make_html.log"
 	shell: 
 		"""
-		Rscript -e 'rmarkdown::render(\"./{params.script}\", output_file = \"../{output.html}\", params=list(inputobs = \"../{input[0]}\", out_dir = \"../{params.out_dir}\", seurat=\"{params.seurat}\",contrast = \"{params.seurat_status}\",cluster = \"{params.seurat_cluster}\",genes=\"{params.genes}\",wave=\"{params.wave}\"))' > {log} 2>&1
+		Rscript -e 'rmarkdown::render(\"./{params.script}\", output_file = \"../{output.html}\", params=list(inputobs = \"../{input[0]}\", out_dir = \"../{params.out_dir}\", seurat=\"{params.seurat}\",contrast = \"{params.seurat_status}\",cluster = \"{params.seurat_cluster}\",genes=\"{params.genes}\",wave=\"{params.wave}\",samples=\"{params.sample_names}\"))' > {log} 2>&1
 		"""
 
 
