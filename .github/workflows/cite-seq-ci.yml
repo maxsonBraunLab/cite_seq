@@ -1,6 +1,8 @@
 name: cite-seq ci
 
 on: [push]
+- name: snakemake
+  uses: snakemake/snakemake-github-action@v1.18.0
 
 jobs:
   build-linux:
@@ -15,12 +17,9 @@ jobs:
       with:
         python-version: 3.8
     
-    - uses: conda-incubator/setup-miniconda@v2
+    - name: SnakeMake Dry run
+      uses: snakemake/snakemake-github-action@v1.18.0
       with:
-        activate-environment: anaconda-client-env
-        environment-file: .github/workflows/snakemake-5.32.2.yaml
-        python-version: 3.8
-        auto-activate-base: false
-    - run: |
-      conda info
-      conda list
+        directory: '.test'
+        snakefile: 'Snakefile'
+        args: '--cores 1 --use-conda --conda-cleanup-pkgs cache -np'
