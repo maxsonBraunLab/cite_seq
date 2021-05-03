@@ -1,0 +1,31 @@
+name: cite-seq ci
+
+on: [push]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Add conda to system path
+      run: |
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install dependencies
+      run: |
+        conda env create -f snakemake-5.32.2.yaml -name snakemake-5.32.2
+    - name: Dry run
+      run: |
+        conda activate snakemake-5.32.2
+        snakemake -j 1 --use-conda -np
+    - name: Test workflow
+      run: |
+        conda activate snakemake-5.32.2
+        snakemake -j 8 --use-conda
