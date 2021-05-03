@@ -20,7 +20,7 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-        $CONDA env create -f snakemake-5.32.2.yaml -name snakemake-5.32.2
+        $CONDA/bin/conda env create -f snakemake-5.32.2.yaml -name snakemake-5.32.2
     - name: Dry run
       run: |
         conda activate snakemake-5.32.2
