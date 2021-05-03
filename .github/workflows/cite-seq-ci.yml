@@ -1,8 +1,6 @@
 name: cite-seq ci
 
 on: [push]
-- name: snakemake
-  uses: snakemake/snakemake-github-action@v1.18.0
 
 jobs:
   build-linux:
