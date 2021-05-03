@@ -14,18 +14,13 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
-    - name: Add conda to system path
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
-    - name: Install dependencies
-      run: |
-        $CONDA/bin/conda env create -f snakemake-5.32.2.yaml -name snakemake-5.32.2
-    - name: Dry run
-      run: |
-        conda activate snakemake-5.32.2
-        snakemake -j 1 --use-conda -np
-    - name: Test workflow
-      run: |
-        conda activate snakemake-5.32.2
-        snakemake -j 8 --use-conda
+    
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        activate-environment: anaconda-client-env
+        environment-file: .github/workflows/snakemake-5.32.2.yaml
+        python-version: 3.8
+        auto-activate-base: false
+    - run: |
+      conda info
+      conda list
