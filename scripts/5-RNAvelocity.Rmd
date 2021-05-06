@@ -59,6 +59,14 @@ base_line <- params$baseline
 ```{r }
 #functions:
 
+create_dt <- function(x){
+#credit: https://rstudio.github.io/DT/extensions.html
+  DT::datatable(x,
+                extensions = 'Buttons',
+                options = list(dom = 'Bfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+}
+
 VlnPlot_stats <- function(seuratObj, group_by, gene_signature, color = NULL){
   
   comparisons <- unique(seuratObj@meta.data[group_by][,1])
@@ -395,25 +403,47 @@ A positive high score indicates that the velocity of that gene in the cluster is
 ```{r ta_vel, warning = F}
 v_table <- read.delim(paste(fig_path,"../analysis","cluster_condition_velocity.tsv",sep="/"))
 v_table <- v_table[,-1]
-datatable(v_table)
+create_dt(v_table)
 ```
 
+Wilcoxon rank sum test for RNA expression and Velocity:   `r base_line` vs rest
 
-```{r , warning = F, results = 'asis'}
 
+```{r warning = F}
+df_markers_list <- list()
 ##### markers table
 for (clust in sort(unique_clusters)){	
-	cat("\n\n## Cluster: ",clust,"\n\n")
-	cat(sprintf("Wilcoxon rank sum test for RNA expression and Velocity:   %s vs rest \n",base_line))
+	
 	
 	DE_path <- paste(fig_path,"..",sprintf("analysis/%s/wilcoxon_%s_RNA_velocity_merged.tsv",gsub("/",".",clust),base_line),sep="/")
 	if (file.exists(DE_path)){
 		df_marker <- read.delim(DE_path)
 		df_marker <- df_marker[,-1] #remove index column (just numbers; not informative)
-		df_marker[,which(unlist(lapply(df_marker, function(x) !any(is.na(x)))))]##remove any NA
-		print(knitr::kable(df_marker))
+		df_marker[which(unlist(apply(df_marker, 1,function(x) !any(is.na(x))))),]##remove any NA
+		df_markers_list[[as.character(clust)]] <- df_marker
+		#print(knitr::kable(df_marker))
+		#knitr:knit_child(text = c('\n\n## Cluster: "`r clust`"\n\n',
+		
 	}
 }
+
+```
+
+```{r  results = 'asis'}
+
+#loop through to make DT for each cluster
+# from https://bookdown.org/yihui/rmarkdown-cookbook/child-document.html#child-document
+res_dt <- sapply(names(df_markers_list), function(x) {
+		knitr::knit_child(text = c(
+		'\n## Cluster: "`r x`"\n',
+		'',
+		'```{r }',
+		'create_dt(df_markers_list[[as.character(x)]])',
+		'```',
+		''
+		), envir = environment(),quiet = TRUE)
+	})
+cat(unlist(res_dt),sep = '\n')
 ```
 
 # Heatmap of top 5 DE genes per cluster vs rest {.tabset .tabset-fade .tabset-pills}
