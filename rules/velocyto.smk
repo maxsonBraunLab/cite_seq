@@ -36,7 +36,7 @@ rule seurat_convert:
 	input:
 		seurat_file=rules.cluster.output.rds
 	output: 
-		out_file="data/velocity/seurat_integrated.loom",
+		out_file="data/looms/seurat_integrated.loom",
 		embedding_file = "data/embeddings/seurat_integrated_embeddings.tsv",
 		seurat_sample_embedding = expand("data/embeddings/seurat_{sample}_embeddings.tsv", sample = SAMPLES)
 	params:
@@ -51,7 +51,7 @@ rule seurat_convert:
 rule CB_correct_ind:
 	input:
 		subset_CB      		 = "data/raw/{sample}/velocyto/{sample}.loom",
-		seurat_convert    	 = "data/velocity/seurat_integrated.loom",
+		seurat_convert    	 = "data/looms/seurat_integrated.loom",
 		seurat_embedding     = "data/embeddings/seurat_integrated_embeddings.tsv",
 		seurat_samp_embedding= "data/embeddings/seurat_{sample}_embeddings.tsv"
 	output:
