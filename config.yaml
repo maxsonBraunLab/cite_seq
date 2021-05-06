@@ -160,5 +160,11 @@ seurat_status:
     orig.ident
 seurat_batch:
     orig.ident
-color_dict:
-    None
+color_hex:
+    - '#B0207E'
+    - '#67CAD4'
+order_plot:
+    - flt3_aml_dmso
+    - flt3_aml_ory
+cyto_path:
+    /home/groups/precepts/enright/tools/CytoTRACE-master.zip

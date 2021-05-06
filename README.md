@@ -107,6 +107,25 @@ There are 3 schemes for differential expression analysis:
 2. FindConservedMarkers = For each sample at each cluster, find commonly-expressed genes between 2 identities. I would not look beyond the top 10 genes per cluster on this list. `data/markers/FindConservedMarkers`
 3. FindMarkersIdent = loop through each cluster and do pairwise test between 2 conditions (wilcoxon). up and down genes are pushed through topGO. `data/markers/FindMarkersIdent`
 
+### 5 - RNAvelocity
+
+Runs velocyto on multiple 10x outputs from cellranger and partial velocity analyis with scVelo.
+
+[Velocyto Reference](https://velocyto.org/velocyto.py/tutorial/cli.html#run10x-run-on-10x-chromium-samples)
+
+[Velocyto preprint: RNA velocity in single cells](https://www.biorxiv.org/content/10.1101/206052v1)
+
+Add the paths in the *config.yaml* for the GTF files.
+
+Repeat masker downloaded from [UCSC](https://genome.ucsc.edu/cgi-bin/hgTables?hgsid=611454127_NtvlaW6xBSIRYJEBI0iRDEWisITa&clade=mammal&org=&db=hg38&hgta_group=allTracks&hgta_track=rmsk&hgta_table=rmsk&hgta_regionType=genome&position=&hgta_outputType=gff&hgta_outFileName=hg19_repeatmask.gtf). 
+Repat masker is optional to velocyto but it is required here.
+
+Reference gtf annotation files from 10x.
+[Human 10x gtf](http://cf.10xgenomics.com/supp/cell-exp/refdata-cellranger-hg19-3.0.0.tar.gz)
+
+Requires permission for cellranger out directory.
+
+
 ## Methods
 
 ![method_rulegraph](rulegraph.svg)
@@ -114,3 +133,7 @@ There are 3 schemes for differential expression analysis:
 ## References
 
 [CITE-Seq](https://www.nature.com/articles/nmeth.4380)
+
+[Velocyto Analysis](https://velocyto.org/velocyto.py/tutorial/analysis.html)
+
+[scVelo](https://scvelo.readthedocs.io)

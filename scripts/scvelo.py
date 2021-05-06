@@ -10,7 +10,6 @@ import scvelo as scv
 curr_dir = os.getcwd()
 begin_time = datetime.datetime.now().timestamp()
 velocity_loom = snakemake.input.velocity_loom
-seurat_loom = snakemake.input.seurat_loom
 genes_of_interest = snakemake.params.genes
 out_object = snakemake.output.out_object
 out_dir = os.path.dirname(out_object)
@@ -72,29 +71,6 @@ df = adata.obs.groupby('cluster')[keys].mean().T
 #df.style.background_gradient(cmap='coolwarm', axis=1)
 df.to_csv("velo_confidence_cluster.tsv",sep="\t")
 
-#scv.tl.velocity_pseudotime(adata)
-#scv.tl.velocity_clusters(adata, match_with = "cluster")
-#scv.pl.scatter(adata, color='velocity_clusters', save = "scatter_velo.png")
-
-#scv.tl.rank_velocity_genes(adata, groupby='cluster', min_corr=.3)
-#df = scv.DataFrame(adata.uns['rank_velocity_genes']['names'])
-#df.to_csv("rank_velocity_genes_by_cluster.tsv",sep="\t")
-
-#scv.tl.rank_velocity_genes(adata, groupby='samples', min_corr=.3)
-#df = scv.DataFrame(adata.uns['rank_velocity_genes']['names'])
-#df.to_csv("rank_velocity_genes_by_samples.tsv",sep="\t")
-
-# Likelihood ratio test for differential kinetics to detect clusters/lineages that display kinetic behavior that cannot be sufficiently explained by a single model for the overall dynamics
-#scv.tl.differential_kinetic_test(adata, var_names = 'velocity_genes', groupby='cluster')
-
-
-for gene in genes_of_interest:
-	try:
-		scv.pl.velocity(adata,str(gene), dpi = 120, figsize = (7,5), color = "cluster",legend_loc = 'best',save = "scatter_gene_cluster_{}.png".format(gene))
-		scv.pl.velocity(adata,str(gene), dpi = 120, figsize = (7,5), color = "Condition",legend_loc = 'best',save = "scatter_gene_condition_{}.png".format(gene))
-		scv.pl.velocity(adata,str(gene), dpi = 120, figsize = (7,5), color = "celltype_Condition",legend_loc = 'best',save = "scatter_gene_celltype_{}.png".format(gene))
-	except:
-		sys.stderr.write("{} not included".format(gene))
 
 almost_time = datetime.datetime.now().timestamp()
 sys.stderr.write("almost finished in: " + str(round((almost_time-begin_time)/60/60,2)) + " hours")

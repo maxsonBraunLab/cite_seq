@@ -13,9 +13,6 @@ begin_time = datetime.datetime.now().timestamp()
 
 sys.stderr.write("beginning scvelo!")
 velocity_loom = snakemake.input.velocity_loom
-seurat_loom = snakemake.input.seurat_loom
-
-sample_batch = snakemake.params.seurat_sample
 
 out_object = snakemake.output.out_object
 out_dir = os.path.dirname(out_object)
@@ -45,7 +42,8 @@ prop_plot = scv.pl.proportions(adata, show = False)
 
 
 
-adata.obsm["X_pca"] = adata.obsm["pca_cell_embeddings"]
+#adata.obsm["X_pca"] = adata.obsm["pca_cell_embeddings"]
+scanpy.tl.pca(adata)
 scanpy.external.pp.bbknn(adata, batch_key = "samples")
 
 #filter genes, normalize per cell, filter genes dispersion, and scale (log1p)
@@ -53,7 +51,8 @@ scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=None)
 #first and second order moments (means and uncentered variances) computed among nearest neighbors in PCA space, computes: pca and neighbors
 scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
 #default mode for velocity is stochastic,  mode = 'dynamical' and mode = "deterministic" are also available.   see https://scvelo.readthedocs.io/about.html
-scv.tl.velocity(adata)
+scv.tl.recover_dynamics(adata)
+scv.tl.velocity(adata, mode = 'dynamical')
 #transition probabilties calculated by cosine correlation between the potential cell-to-cell transitions
 scv.tl.velocity_graph(adata)
 scv.pl.velocity_embedding_stream(adata, basis='umap', color = 'cluster', save = "scvelo_stream_batch.png")
@@ -62,7 +61,7 @@ scv.pl.velocity_embedding_grid(adata,basis='umap', color = 'cluster', save = "sc
 
 # timestamp
 plots_time = datetime.datetime.now().timestamp()
-sys.stderr.write("finished plots: " + str(round((plots_time-begin_time)/60/60,2)) + " hours")
+sys.stderr.write("finished plots: " + str(round((plots_time-begin_time)/60/60,2)) + " hours\n")
 
 
 scv.tl.velocity_confidence(adata)
@@ -102,10 +101,10 @@ for gene in genes_of_interest:
 		scv.pl.velocity(adata,str(gene), dpi = 120, figsize = (7,5), color = "Condition",legend_loc = 'best',save = "batch_scatter_gene_condition_{}.png".format(gene))
 		scv.pl.velocity(adata,str(gene), dpi = 120, figsize = (7,5), color = "celltype_Condition",legend_loc = 'best',save = "batch_scatter_gene_celltype_{}.png".format(gene))
 	except:
-		sys.stderr.write("{} not included".format(gene))
+		sys.stderr.write("{} not included, ".format(gene))
 
 almost_time = datetime.datetime.now().timestamp()
-sys.stderr.write("almost finished in: " + str(round((almost_time-begin_time)/60/60,2)) + " hours")
+sys.stderr.write("almost finished in: " + str(round((almost_time-begin_time)/60/60,2)) + " hours\n")
 
 #save plot proportions
 fig = prop_plot.get_figure()
@@ -116,8 +115,8 @@ os.chdir(curr_dir)
 
 adata.write_h5ad(out_object)
 
-adata.obs.to_csv("scvelo_batch_obs.tsv",sep="\t")
+#adata.obs.to_csv("scvelo_batch_obs.tsv",sep="\t")
 
 #completed timestamp
 end_time = datetime.datetime.now().timestamp()
-sys.stderr.write("finished in: " + str(round((end_time - begin_time)/60/60,2)) + " hours")
+sys.stderr.write("total time start to end: " + str(round((end_time - begin_time)/60/60,2)) + " hours\n")

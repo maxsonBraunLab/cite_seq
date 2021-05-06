@@ -40,7 +40,11 @@ def main():
         cluster_ID = ds.ca[cluster_identity]			#cluster id  such as "seurat_clusters" or "integrated_snn_res.0.5"
     except:
         sys.stderr.write("The following meta column is not in data: {}\n ".format(cluster_identity))
-    
+        
+    #are they cluster numbers? 
+    # if they are then weirdly they need to be adjusted
+    clusters_are_numbers = str(list(set(cluster_ID))[0]).isdigit()
+        
     
     #sample names
     sample_ids = ds.ca["orig.ident"]
@@ -109,8 +113,10 @@ def main():
     # make dictionary for cluster ID
     cell_cluster_dict = {}
     for i in range(len(seurat_cells)):
-        cell_cluster_dict[seurat_cells[i]] = cluster_ID[i]
-
+        if clusters_are_numbers:
+            cell_cluster_dict[seurat_cells[i]] = str(int(cluster_ID[i]) - 1)
+        else:    
+            cell_cluster_dict[seurat_cells[i]] = cluster_ID[i]
     # dictionary of cell id to umap coord
     cell_umap_dict = {}
     for i in range(len(seurat_cells)):

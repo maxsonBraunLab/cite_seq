@@ -1,6 +1,6 @@
 rule samtools_sort:
 	input:
-		"data/raw/{sample}/outs/possorted_genome_bam.bam"
+		ancient("data/raw/{sample}/outs/possorted_genome_bam.bam")
 	output:
 		"data/raw/{sample}/outs/cellsorted_possorted_genome_bam.bam"
 	conda:
@@ -12,9 +12,9 @@ rule samtools_sort:
 		samtools sort -t CB -O BAM -o {output} {input} > {log} 2>&1
 		"""
 		
-rule RNAvelocity:
+rule velocyto:
 	input:
-		"data/raw/{sample}/outs/cellsorted_possorted_genome_bam.bam"
+		ancient("data/raw/{sample}/outs/cellsorted_possorted_genome_bam.bam")
 	output:
 		"data/raw/{sample}/velocyto/{sample}.loom"
 	params:
@@ -26,7 +26,7 @@ rule RNAvelocity:
 	conda:
 		"../envs/velocity.yml"
 	log:
-		"logs/velocity/{sample}/RNAvelocity.log"	
+		"logs/velocity/{sample}/velocyto.log"	
 	shell:
 		"""
 		velocyto run10x -m {params.repeat_mask} -@ {params.n_cores} {params.name} {params.gtf} > {log} 2>&1
@@ -36,12 +36,14 @@ rule seurat_convert:
 	input:
 		seurat_file=rules.cluster.output.rds
 	output: 
-		out_file="data/velocity/seurat_integrated.loom",
-		embedding_file = "data/embeddings/seurat_embeddings.tsv"
+		out_file="data/looms/seurat_integrated.loom",
+		embedding_file = "data/embeddings/seurat_integrated_embeddings.tsv"
+	params:
+		samples = SAMPLES
 	conda:
 		"../envs/seurat_convert.yml"
 	log:
-		"logs/seurat_convert.log"
+		"logs/velocity/seurat_convert.log"
 	script:
 		"../scripts/seurat_convert.R" 
 		
@@ -49,7 +51,8 @@ rule CB_correct_ind:
 	input:
 		subset_CB      		 = "data/raw/{sample}/velocyto/{sample}.loom",
 		seurat_convert    	 = "data/velocity/seurat_integrated.loom",
-		seurat_embedding     = "data/embeddings/seurat_embeddings.tsv"
+		seurat_embedding     = "data/embeddings/seurat_integrated_embeddings.tsv",
+		seurat_samp_embedding= "data/embeddings/seurat_{sample}_embeddings.tsv"
 	output:
 		loom_out       		 = "data/velocity/{sample}/velocity.loom"
 	params:
@@ -94,8 +97,7 @@ rule scvelo_ind:
 
 rule scvelo_batch:
 	input:
-		velocity_loom = "data/looms/sorted_merged.loom",
-		seurat_loom = "data/velocity/seurat_integrated.loom"
+		velocity_loom = "data/looms/sorted_merged.loom"
 	output: 
 		out_object="data/velocity/scvelo_object_batch.h5ad"
 	params:
@@ -106,33 +108,35 @@ rule scvelo_batch:
 	log:
 		"logs/velocity/scvelo_batch.log"	
 	script:
-		"../scripts/scvelo.py" 
+		"../scripts/scvelo_batch.py" 
 
 
 rule scvelo:
 	input:
-		velocity_loom = ancient("data/looms/sorted_merged.loom"),
-		seurat_loom = "data/velocity/seurat_integrated.loom"
+		velocity_loom = "data/looms/sorted_merged.loom"
 	output: 
-		out_object="data/velocity/scvelo_object.h5ad"
+		out_object = "data/velocity/scvelo_object.h5ad"
 	params:
 		genes=config["FeaturePlotList"]
 	conda:
 		"../envs/scvelo.yaml"
 	log:
-		"logs/velocity/scvelo.log"	
+		"logs/velocity/scvelo.log"
 	script:
 		"../scripts/scvelo.py"
+	
 
 rule analyze_scvelo:
 	input:
 		in_object="data/velocity/scvelo_object.h5ad"
 	output: 
-		out_object="data/velocity/scvelo_obs.tsv"
+		out_object="data/velocity/scvelo_obs.tsv",
+		adata_out ="data/velocity/scvelo_analysis.h5ad"
 	params:
 		genes=config["FeaturePlotList"],
 		seurat_status = config["seurat_status"],
-		color_dict = config['color_dict']
+		color_hex = config["color_hex"],
+		order_plot = config["order_plot"]
 	conda:
 		"../envs/scvelo_env.yaml"
 	log:
@@ -141,11 +145,12 @@ rule analyze_scvelo:
 		"../scripts/Analyze_Cluster_Condition.py" 
 
 
-rule make_html:
+rule RNAvelocity:
 	input:
 		"data/velocity/scvelo_obs.tsv",
 		expand("data/velocity/{sample}/ind_scvelo_object.h5ad", sample = SAMPLES),
-		"data/velocity/scvelo_object_batch.h5ad"
+		"data/velocity/scvelo_object_batch.h5ad",
+		"data/velocity/scvelo_analysis.h5ad"
 	output: 
 		html="data/reports/5-RNAvelocity.html"
 	params:
@@ -155,15 +160,16 @@ rule make_html:
 		seurat_status=config["seurat_status"],
 		seurat_cluster=config["seurat_cluster"],
 		genes=config["FeaturePlotList"],
+		base_line = config["baseline"],
 		wave = config['project_name'],
-		out_dir="data/velocity/Analyze"
+		out_dir="data/velocity"
 	conda:
 		"../envs/seurat.yaml"
 	log:
-		"logs/velocity/make_html.log"
+		"logs/velocity/RNAvelocity.log"
 	shell: 
 		"""
-		Rscript -e 'rmarkdown::render(\"./{params.script}\", output_file = \"../{output.html}\", params=list(inputobs = \"../{input[0]}\", out_dir = \"../{params.out_dir}\", seurat=\"{params.seurat}\",contrast = \"{params.seurat_status}\",cluster = \"{params.seurat_cluster}\",genes=\"{params.genes}\",wave=\"{params.wave}\",samples=\"{params.sample_names}\"))' > {log} 2>&1
+		Rscript -e 'rmarkdown::render(\"./{params.script}\", output_file = \"../{output.html}\", params=list(inputobs = \"../{input[0]}\", out_dir = \"../{params.out_dir}\", seurat=\"{params.seurat}\",contrast = \"{params.seurat_status}\",cluster = \"{params.seurat_cluster}\",genes=\"{params.genes}\",wave=\"{params.wave}\",samples=\"{params.sample_names}\",baseline=\"{params.base_line}\"))' > {log} 2>&1
 		"""
 
 

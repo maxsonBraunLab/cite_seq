@@ -3,3 +3,8 @@ submit_snakemake.sh
 /logs/
 /jobs/
 /.snakemake
+/scripts/cytoTrace.R
+/envs/cytoTrace.yaml
+/envs/cytold.yaml
+.ipynb_checkpoints/
+/scripts/__pycache__/
