@@ -119,7 +119,7 @@ def main():
 				
 				#phase plot
 				sys.stderr.write("\n attempting phase plot\n")
-				scv.pl.velocity(adata_subset,str(gene), dpi = 120, figsize = (7,5), color = condition,legend_loc = 'best',save = "scatter_gene_cluster_{}_{}.png".format(gene,str(clust).replace("/",".")))
+				scv.pl.velocity(adata_subset,str(gene), dpi = 120, figsize = (7,5), color = condition,palette = color_dict, legend_loc = 'best',save = "scatter_gene_cluster_{}_{}.png".format(gene,str(clust).replace("/",".")))
 				
 				
 				#phase plot (color by CC phase)

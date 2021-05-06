@@ -374,6 +374,15 @@ for (clust in sort(unique_clusters)){
 			
 			cat('\n![Phase Scatter](',file_path,')\n\n')
 		}
+		
+		#Phase phase plot
+		file_path <- paste(fig_path,sprintf("scatter_phase_{}_{}.png",cur_gene,gsub("/",".",clust)),sep="/")
+		if(file.exists(file_path)){
+			
+			cat('\n![Phase Scatter](',file_path,')\n\n')
+			cat('\nG1: red, G2M: blue, S: green\n')
+		}
+		
 		# expression plot
 		file_path <- paste(fig_path,sprintf("VlnPlot_%s_%s_exp.png",gsub("/",".",clust),cur_gene),sep="/")
 		if(file.exists(file_path)){
@@ -464,7 +473,7 @@ if(file.exists(file_path)){
 
 file_path <- paste(fig_path,"heatmapscanpy_Ms_heatmap.png",sep="/")
 if(file.exists(file_path)){
-	cat('\n![Unspliced Heatmap](',file_path,')\n\n')
+	cat('\n![Spliced Heatmap](',file_path,')\n\n')
 }
 ```
 
