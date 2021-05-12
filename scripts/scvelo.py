@@ -13,6 +13,7 @@ velocity_loom = snakemake.input.velocity_loom
 genes_of_interest = snakemake.params.genes
 out_object = snakemake.output.out_object
 out_dir = os.path.dirname(out_object)
+n_cores = int(snakemake.params.n_cores)
 #walkthrough
 #https://colab.research.google.com/github/theislab/scvelo_notebooks/blob/master/VelocityBasics.ipynb#scrollTo=iHl8jdCUd1j8
 
@@ -42,7 +43,7 @@ scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=None)
 #first and second order moments (means and uncentered variances) computed among nearest neighbors in PCA space, computes: pca and neighbors
 scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
 #default mode for velocity is stochastic,  mode = 'dynamical' and mode = "deterministic" are also available.   see https://scvelo.readthedocs.io/about.html
-scv.tl.recover_dynamics(adata)
+scv.tl.recover_dynamics(adata,n_jobs = n_cores)
 scv.tl.velocity(adata,mode = 'dynamical')
 #transition probabilties calculated by cosine correlation between the potential cell-to-cell transitions
 

@@ -103,7 +103,8 @@ rule scvelo_batch:
 		out_object="data/velocity/scvelo_object_batch.h5ad"
 	params:
 		seurat_cluster=config["seurat_cluster"],
-		genes=config["FeaturePlotList"]
+		genes=config["FeaturePlotList"],
+		n_cores=config["cores"]
 	conda:
 		"../envs/scvelo.yaml"
 	log:
@@ -118,7 +119,8 @@ rule scvelo:
 	output: 
 		out_object = "data/velocity/scvelo_object.h5ad"
 	params:
-		genes=config["FeaturePlotList"]
+		genes=config["FeaturePlotList"],
+		n_cores=config["cores"]
 	conda:
 		"../envs/scvelo.yaml"
 	log:
