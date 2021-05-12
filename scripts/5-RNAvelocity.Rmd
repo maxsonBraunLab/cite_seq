@@ -61,32 +61,50 @@ base_line <- params$baseline
 
 create_dt <- function(x){
 #credit: https://rstudio.github.io/DT/extensions.html
+#creates a searchable table with buttons to export/copy etc.
   DT::datatable(x,
                 extensions = 'Buttons',
                 options = list(dom = 'Bfrtip',
                                buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 }
 
+
 VlnPlot_stats <- function(seuratObj, group_by, gene_signature, color = NULL){
+  # takes a seurat object and outputs a violin plot with stats (student's t-test)
+  # comparing the means of the different groups given by 'group_by'.
+  # gene_signature is the gene or genes to plot.
+  # color is given to the 'cols' parameter for seurat::VlnPlot
   
+  # ensure genes from gene_signature are in seuratObj
+  genes_valid <- NULL
+  for (gene in gene_signature){
+	if (gene %in% rownames(seuratObj)){
+		genes_valid <- c(genes_valid, gene)
+	}
+  }
+  
+  # get comparisions from 'group_by' column in seurat objects metadata
   comparisons <- unique(seuratObj@meta.data[group_by][,1])
+  # retrieve a list of comparisions to make for any amount (except 1) of unique comparisons 
   comp_list <- list()
+  #loop through all groups in comparisons	
   for (i in 1:length(comparisons)){
-
+		# loop through all comparisions that can be made from current (i_th) group
 	  for(j in (i+1):length(comparisons)){
-
+		# if it runs out of groups, then break the loop and return to outer loop
 		if (j > length(comparisons)){
 		 
 		  break
 		}
-		
+		# otherwise, add a vector of groups to compare to the comparision list
 		comp_list[[paste(i,j,sep="_")]] <- c(comparisons[i],comparisons[j])
 
 		}
 	}
   
   plot_case1 <- function(signature, y_max = NULL, comparisions = comparisons){
-    
+    # takes a signature (gene) , a max y value, and a comparision
+	# and returns a seurat::VlnPlot violin plot with stat_compare_means 
     VlnPlot(seuratObj, features = signature,
             pt.size = 0, 
             group.by = group_by, 
@@ -95,17 +113,15 @@ VlnPlot_stats <- function(seuratObj, group_by, gene_signature, color = NULL){
     ) + stat_compare_means(comparisons = comp_list, label = "p.value", method = "t.test")  
   }
   plot_list <- list()
-  for (gene in gene_signature) {
-    max_try <- try(max(FetchData(seuratObj, vars = gene)))
-    if(class(max_try) == "try-error"){
-      next
-    } else {
-      plot_list[[gene]] <- plot_case1(signature = gene, y_max = max_try + 3)
-    }
+  # loop through genes/markers in gene_signature and call the above function
+  # to add the plot to the plot_list
+  for (gene in genes_valid) {
+    max_gene_exp <- max(FetchData(seuratObj, vars = gene))
+    plot_list[[gene]] <- plot_case1(signature = gene, y_max = max_gene_exp + 3) #plus three to give room for the stats
   }
+  #return grid of plot
   cowplot::plot_grid(plotlist = plot_list)
-  #file_name <- paste0(file_name, "_r.png")
-  #ggsave(file_name, width = 14, height = 8*())
+ 
 }
 
 ```
@@ -116,15 +132,17 @@ RNA velocity leverages unspliced pre-mRNAs and mature, spliced mRNAs can be dist
 
 ```{r }
 
+#read in a meta data file that contains information about each cell
 scvelo <- read.delim(paste(getwd(),scvelo_path,sep="/"))
 
 string_to_list <- function (x) {
+	#given a string with spaces as python will give to R.
+	# return the vectorized format by replacing the spaces with commas
   return(unlist(strsplit(gsub("\\s", ",", x) ,",")))
 }
 
+#genes from the config file
 genes_of_interest <- string_to_list(genes)
-
-unique_clusters <- unique(scvelo$cluster)
 
 ```
 
@@ -243,6 +261,7 @@ Batch balanced kNN alters the kNN procedure to identify each cell’s top neighb
 
 
 ```{r, results = "asis"}
+# names of samples 
 working_names <- string_to_list(working_names)
 
 
@@ -250,17 +269,21 @@ for (i in 1:length(working_names)){
   
   cur_sample <- working_names[i]
   cur_path <- paste(outdir,cur_sample,"figures",sep="/")
+  
+  #proporions plot
   file_path <- paste(cur_path,"proportions.png",sep="/")
   if(file.exists(file_path)){
     cat("## ",cur_sample,"\n\n")
     cat('\n![Proportions](',file_path,')\n')
     cat('\n')
   }
+  # scatter confidence plot
   file_path <- paste(cur_path,"scvelo_scatter_confidence.png",sep="/")
   if(file.exists(file_path)){
     cat('\n![Scatter confidence](',file_path,')\n')
     cat('\n')
   }
+  # velocity streams on umap plot
   file_path <- paste(cur_path,"scvelo_scvelo_stream.png",sep="/")
   if(file.exists(file_path)){
     cat('\n![Stream](',file_path,')\n')
@@ -277,8 +300,9 @@ Transcriptional induction for a particular gene results in an increase of (newly
 
 ```{r error = FALSE}
 
-
+#read in seurat object 
 seuratObj <- readRDS(paste(getwd(),"..",seurat,sep="/"))
+# working with the 'integrated' object
 seuratObj <- seuratObj[['integrated']]
 
 if (contrast == 'None'){
@@ -287,11 +311,11 @@ if (contrast == 'None'){
 } else {
 	Order_plot <- sort(unique(seuratObj[[contrast]][,1]))
 }
-
+#changing seurat default assay to "RNA" 
 DefaultAssay(seuratObj) <- "RNA"
-
+# getting the unique clusters from the seurat object
 unique_clusters <- unique(seuratObj[[seurat_cluster]][,1])
-
+#make the contrast a factor 
 seuratObj[[contrast]] <- factor(x = seuratObj[[contrast]][,1],levels = Order_plot)
 
 #make the plots for later
@@ -302,6 +326,7 @@ for (clust in sort(unique_clusters)){
 		if (!(gene %in% rownames(sub_seurat))){
 			next
 		}
+		# violin stat plot
 		file_path <- paste(fig_path,sprintf("VlnPlot_%s_%s_exp.png",clust,gene),sep="/")
 		if(!(file.exists(file_path))){
 			p_plot <- try(pplot <- VlnPlot_stats(sub_seurat, group_by = contrast, gene_signature = gene))
@@ -309,6 +334,7 @@ for (clust in sort(unique_clusters)){
 				ggsave(basename(file_path), plot = p_plot, path = dirname(file_path), device = "png")
 			}
 		}
+		# feature plot
 		file_path <- paste(fig_path,sprintf("FeaturePlot_%s_%s_exp.png",clust,gene),sep="/")
 		if(!(file.exists(file_path))){
 			p_plot <- try(pplot <- FeaturePlot(sub_seurat, features = gene, split.by = contrast))
@@ -329,6 +355,7 @@ for (clust in sort(unique_clusters)){
 
 ```{r  results='asis'}
 
+# loop through each of the unique clusters
 for (clust in sort(unique_clusters)){
 	
 	
@@ -401,7 +428,7 @@ for (clust in sort(unique_clusters)){
 ```
 
 
-# Velocity DE scores table {.tabset .tabset-fade .tabset-pills}
+# Velocity DE scores table 
 
 
 This applies a differential expression test (Welch t-test with overestimated variance to be conservative) on velocity expression, to find genes in a cluster that show dynamics that is transcriptionally regulated differently compared to all other clusters (e.g. induction in that cluster and homeostasis in remaining population).
@@ -415,12 +442,12 @@ v_table <- v_table[,-1]
 create_dt(v_table)
 ```
 
-Wilcoxon rank sum test for RNA expression and Velocity:   `r base_line` vs rest
+## Wilcoxon rank sum test for RNA expression and Velocity:   `r base_line` vs rest {.tabset .tabset-fade .tabset-pills}
 
 
 ```{r warning = F}
 df_markers_list <- list()
-##### markers table
+##### collect markers table for each cluster
 for (clust in sort(unique_clusters)){	
 	
 	
@@ -430,9 +457,6 @@ for (clust in sort(unique_clusters)){
 		df_marker <- df_marker[,-1] #remove index column (just numbers; not informative)
 		df_marker[which(unlist(apply(df_marker, 1,function(x) !any(is.na(x))))),]##remove any NA
 		df_markers_list[[as.character(clust)]] <- df_marker
-		#print(knitr::kable(df_marker))
-		#knitr:knit_child(text = c('\n\n## Cluster: "`r clust`"\n\n',
-		
 	}
 }
 
@@ -457,7 +481,7 @@ cat(unlist(res_dt),sep = '\n')
 
 # Heatmap of top 5 DE genes per cluster vs rest {.tabset .tabset-fade .tabset-pills}
 
-## Unspliced 
+## Unspliced
 
 ```{r , warning = F, results = 'asis', eval = T}
 
