@@ -61,7 +61,7 @@ rule CB_correct_ind:
 		seurat_cluster 		 = config["seurat_cluster"],
 		seurat_batch   		 = config["seurat_batch"]
 	conda:
-		"../envs/scvelo.yaml"
+		"../envs/scvelo_env.yaml"
 	log:
 		"logs/velocity/{sample}/CB_correct_ind.log"
 	script:
@@ -90,7 +90,7 @@ rule scvelo_ind:
 		seurat_cluster			= config["seurat_cluster"],
 		seurat_batch 			= config["seurat_batch"]
 	conda:
-		"../envs/scvelo.yaml"
+		"../envs/scvelo_env.yaml"
 	log:
 		"logs/velocity/{sample}/scvelo_ind.log"	
 	script:
@@ -106,7 +106,7 @@ rule scvelo_batch:
 		genes=config["FeaturePlotList"],
 		n_cores=config["cores"]
 	conda:
-		"../envs/scvelo.yaml"
+		"../envs/scvelo_env.yaml"
 	log:
 		"logs/velocity/scvelo_batch.log"	
 	script:
@@ -122,7 +122,7 @@ rule scvelo:
 		genes=config["FeaturePlotList"],
 		n_cores=config["cores"]
 	conda:
-		"../envs/scvelo.yaml"
+		"../envs/scvelo_env.yaml"
 	log:
 		"logs/velocity/scvelo.log"
 	script:
