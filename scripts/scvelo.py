@@ -56,7 +56,7 @@ scv.pl.velocity_embedding_grid(adata,basis='umap', color = 'cluster', save = "sc
 
 # timestamp
 plots_time = datetime.datetime.now().timestamp()
-sys.stderr.write("finished plots: " + str(round((plots_time-begin_time)/60/60,2)) + " hours")
+sys.stderr.write("finished plots: " + str(round((plots_time-begin_time)/60/60,2)) + " hours\n")
 
 
 scv.tl.velocity_confidence(adata)
@@ -74,7 +74,7 @@ df.to_csv("velo_confidence_cluster.tsv",sep="\t")
 
 
 almost_time = datetime.datetime.now().timestamp()
-sys.stderr.write("almost finished in: " + str(round((almost_time-begin_time)/60/60,2)) + " hours")
+sys.stderr.write("almost finished in: " + str(round((almost_time-begin_time)/60/60,2)) + " hours\n")
 
 #save plot proportions
 fig = prop_plot.get_figure()
@@ -90,4 +90,4 @@ adata.write_h5ad(out_object)
 
 #completed timestamp
 end_time = datetime.datetime.now().timestamp()
-sys.stderr.write("finished in: " + str(round((end_time - begin_time)/60/60,2)) + " hours")
+sys.stderr.write("finished in: " + str(round((end_time - begin_time)/60/60,2)) + " hours\n")
