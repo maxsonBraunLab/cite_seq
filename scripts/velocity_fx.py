@@ -17,7 +17,7 @@ import seaborn as sns
 import statsmodels.api as sm
 from scipy.stats import pearsonr
 from scipy import spatial
-
+import itertools
 
 
 #### FUNCTIONS ####
@@ -405,7 +405,7 @@ def plot_gene_velocity(adata,gene,groupby = "orig.ident",cluster = "cluster", cl
 		
 		if (stat):
 			#add statistic for groupby. easy to break if box_pairs parameter is not satisfied properly
-			pplot = add_stat_annotation(pplot, data = data_f, x=groupby, y = layer, box_pairs = [tuple(hue_order)], test = 't-test_welch', text_format = "full", loc = 'outside')
+			pplot = add_stat_annotation(pplot, data = data_f, x=groupby, y = layer, box_pairs = list(itertools.combinations(hue_order, 2)), test = 't-test_welch', text_format = "full", loc = 'outside')
 			pplot = pplot[0]
 			#raise plot title to make room for stats
 			pplot.set_title("Cluster {}: {}".format(clust,gene), y = 1.2)
@@ -443,7 +443,7 @@ def plot_gene_velocity(adata,gene,groupby = "orig.ident",cluster = "cluster", cl
 		pplot = sns.violinplot(x = groupby, y = layer, data = data_f,inner = "box", hue_order = hue_order,  **kwargs)
 		if (stat):
 			#add statistic for groupby. easy to break if box_pairs parameter is not satisfied properly
-			pplot = add_stat_annotation(pplot, data = data_f, x=groupby, y = layer, box_pairs = [tuple(hue_order)], test = 't-test_welch', text_format = "full", loc = 'outside')
+			pplot = add_stat_annotation(pplot, data = data_f, x=groupby, y = layer, box_pairs = list(itertools.combinations(hue_order, 2)), test = 't-test_welch', text_format = "full", loc = 'outside')
 			pplot = pplot[0]
 			#raise plot title to make room for stats
 			pplot.set_title("{}: top {} DE genes".format(clust,len(genes)), y = 1.2)

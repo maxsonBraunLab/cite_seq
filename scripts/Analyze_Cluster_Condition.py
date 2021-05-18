@@ -17,6 +17,8 @@ import seaborn as sns
 import statsmodels.api as sm
 from scipy.stats import pearsonr
 from scipy import spatial
+import itertools
+
 from velocity_fx import get_top_n_genes_per_cluster,cos_sim,add_entropy,scatter_velocity,heatmap_velocity,plot_gene_velocity,get_velocity_table
 
 
@@ -161,7 +163,7 @@ def main():
 				Order_plot = [key for key in color_dict.keys()]
 				p_plot = scanpy.pl.violin(adata_subset, keys = "velocity_length", groupby = condition, show = False, inner = "box", size = 0, order = Order_plot, palette = color_dict)
 			
-				fig = add_stat_annotation(p_plot, data = adata_subset.obs, x=condition, y = "velocity_length", box_pairs = [tuple(Order_plot)], test = 't-test_welch', text_format = "full", loc = 'outside')
+				fig = add_stat_annotation(p_plot, data = adata_subset.obs, x=condition, y = "velocity_length", box_pairs = list(itertools.combinations(Order_plot, 2)), test = 't-test_welch', text_format = "full", loc = 'outside')
 			
 				add_fig = fig[0]
 				for i,x in enumerate(Count):
@@ -223,13 +225,13 @@ def main():
 			#turn ditioncary into a dataframe
 			df = pd.DataFrame(df2)
 			pplot = sns.violinplot(x = 'condition', y = 'sum_values', data = df, inner = "box")
-			fig2 = add_stat_annotation(pplot, data = df, x='condition', y = "sum_values", box_pairs = [tuple(Order_plot)], test = 't-test_welch', text_format = "full", loc = 'outside')
+			fig2 = add_stat_annotation(pplot, data = df, x='condition', y = "sum_values", box_pairs = list(itertools.combinations(Order_plot, 2)), test = 't-test_welch', text_format = "full", loc = 'outside')
 			fig2[0].get_figure().savefig("figures/violin_sum_{}_plot.png".format(str(clust).replace("/",".")))
 			fig2[0].get_figure().clf()
 			pplot.get_figure().clf()
 			
 			pplot = sns.violinplot(x = 'condition', y = 'mean_values', data = df, inner = "box", palette = color_dict,order = Order_plot)
-			fig2 = add_stat_annotation(pplot, data = df, x='condition', y = "sum_values", box_pairs = [tuple(Order_plot)], test = 't-test_welch', text_format = "full", loc = 'outside')
+			fig2 = add_stat_annotation(pplot, data = df, x='condition', y = "sum_values", box_pairs = list(itertools.combinations(Order_plot, 2)), test = 't-test_welch', text_format = "full", loc = 'outside')
 			fig2[0].get_figure().savefig("figures/violin_mean_{}_plot.png".format(str(clust).replace("/",".")))
 			fig2[0].get_figure().clf()
 			pplot.get_figure().clf()
