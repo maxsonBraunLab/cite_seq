@@ -11,4 +11,3 @@ jobs: 64
 keep-going: True
 rerun-incomplete: True
 printshellcmds: True
-conda-prefix: "/home/groups/MaxsonLab/kongg/anaconda3/envs"
