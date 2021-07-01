@@ -17,6 +17,7 @@ cores: 20
 date: "2021-02-22" # YYYY-MM-DD
 
 # list out antibodies exactly as how they are labeled from cell ranger
+# if antibodies are labeled with underscores, convert them to dashes like below.
 antibody_list:
   - ab-CD10
   - ab-CD34
