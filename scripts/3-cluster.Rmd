@@ -65,7 +65,7 @@ clusRes <- lapply(names(config_file$resolutions), function(x) {config_file$resol
 names(clusRes) <- names(config_file$resolutions) # map sample name to resolution
 
 # Number of dimensions to reduce on
-nDims <- config_file$nDims
+nDims <- config_file$useDims
 
 # check if resolutions > 2
 if (any(clusRes > 2)) {
@@ -113,39 +113,48 @@ plotPercentExplained <- function( seuratObject , ndims = nDims) {
 # Perform linear dimensional reduction (UMAP) on myso object
 plotList <- list()
 
+print("plotList created...")
+
 for (sample in names(exptsList)) {
   
   myso <- exptsList[[sample]]
   
-  sampleAssay <- ifelse(sample=='integrated', "Integrated_snn_res." ,"SCT_snn_res.")
+  # sampleAssay <- ifelse(sample=='integrated', "wsnn_res." ,"wsnn_res.")
+  sampleAssay = "wsnn_res."
   
-  plotList[[sample]][["plotPercentExplained"]] <- plotPercentExplained(myso, ndims = nDims)
+  # plotList[[sample]][["plotPercentExplained"]] <- plotPercentExplained(myso, ndims = nDims)
 
-  plotList[[sample]][["ElbowPlot"]] <- ElbowPlot(myso, ndims = nDims) +
-                                          ggtitle(paste("SD Explained by Principle Components in", sample)) +
-                                          theme_clean()
+  # plotList[[sample]][["ElbowPlot"]] <- ElbowPlot(myso, ndims = nDims) +
+  #                                         ggtitle(paste("SD Explained by Principle Components in", sample)) +
+  #                                         theme_clean()
 
-  # Cluster the cells over a range of resolutions
-  myso <- FindNeighbors(object = myso, dims = 1:nDims, verbose = FALSE)
   myso <- myso %>%
-    FindClusters(resolution = seq(0.1, 2, 0.1), verbose = FALSE) %>%
-    RunUMAP(dims = 1:nDims, verbose = FALSE)
-  
-  # Add UMAP embedding
-  embeddings <- Embeddings(myso)
-  myso@meta.data$PC_1 <- embeddings[,1]
-  myso@meta.data$PC_2 <- embeddings[,2]
-  
-  # Clustree visualizations to determine best cluster resolution
-  plotList[[sample]][["clustree"]] <- clustree(myso, prefix = sampleAssay) 
-  
-  plotList[[sample]][["clustreeOverlay"]] <- clustree_overlay(x = myso[[]],
-                                                              prefix = sampleAssay,
-                                                              x_value = "PC_1",
-                                                              y_value = "PC_2") 
-}
+    RunUMAP(nn.name = "weighted.nn", reduction.name = "wnn.umap", reduction.key = "wnnUMAP_", n.components = 3) %>%
+    FindClusters(graph.name = "wsnn", algorithm = 3, resolution = seq(0.1, 2, 0.1), verbose = FALSE)
 
-rm(myso)
+  # Add UMAP embedding
+
+  print("Starting UMAP embedding...")
+  embeddings <- Embeddings(object = myso, reduction = "wnn.umap")
+
+  print("Embedding...")
+  myso@meta.data$wnnUMAP_1 <- embeddings[,1]
+  myso@meta.data$wnnUMAP_2 <- embeddings[,2]
+
+  print("Objects embedded...")
+
+  # Clustree visualizations to determine best cluster resolution
+  plotList[[sample]][["clustree"]] <- clustree(myso, prefix = sampleAssay)
+  
+  plotList[[sample]][["clustreeOverlay"]] <- clustree_overlay(x = myso@meta.data,
+                                                              prefix = sampleAssay,
+                                                              x_value = "wnnUMAP_1",
+                                                              y_value = "wnnUMAP_2")
+
+  myso@meta.data$wnnUMAP_1 = NULL
+  myso@meta.data$wnnUMAP_2 = NULL
+  # exptsList[[sample]] <- myso
+}
 
 plan("sequential")
 ```
@@ -156,13 +165,13 @@ plan("sequential")
 for (i in names(exptsList)) {
   cat(paste( "##", toupper(i), "\n\n" ))
 
-  cat("### Percent Variance Explained by PC\n")
-  plot(plotList[[i]][["plotPercentExplained"]])
-  cat("\n\n---\n\n")
+  # cat("### Percent Variance Explained by PC\n")
+  # plot(plotList[[i]][["plotPercentExplained"]])
+  # cat("\n\n---\n\n")
 
-  cat("### SD Explained by PC\n")
-  plot(plotList[[i]][["ElbowPlot"]])
-  cat("\n\n---\n\n")
+  # cat("### SD Explained by PC\n")
+  # plot(plotList[[i]][["ElbowPlot"]])
+  # cat("\n\n---\n\n")
 
   cat("### Clustree Hierarchy\n")
   plot(plotList[[i]][["clustree"]])
@@ -184,15 +193,15 @@ for (sample in names(exptsList)) {
   
   myso <- exptsList[[sample]]
   
-  # Cluster the cells over a range of resolutions
+  # Cluster the cells at one resolution
+  # RunUMAP will operate on the WNN graph if you tell it to. The default assay does not matter!
   myso <- myso %>%
-    FindNeighbors(dims = 1:nDims, verbose = FALSE) %>%
-    FindClusters(resolution = clusRes[[sample]], verbose = FALSE) %>%
-    RunUMAP(dims = 1:nDims, verbose = FALSE, n.components = 3)
+    RunUMAP(verbose = FALSE, n.components = 3, nn.name = "weighted.nn", reduction.name = "wnn.umap", reduction.key = "wnnUMAP_") %>%
+    FindClusters(graph.name = "wsnn", algorithm = 3, resolution = clusRes[[sample]], verbose = FALSE)
   
   # Plot and save UMAP clusters
   Idents(myso) <- myso$seurat_clusters
-  plotList[[sample]][["umap"]] <- DimPlot(object = myso, reduction = 'umap', label = TRUE, label.size = 7, pt.size = 1) + ggtitle(toupper(sample))
+  plotList[[sample]][["umap"]] <- DimPlot(object = myso, reduction = 'wnn.umap', label = TRUE, label.size = 7, pt.size = 1) + ggtitle(toupper(sample))
   
   # Save clustering
   exptsList[[sample]] <- myso
@@ -220,6 +229,7 @@ for (i in names(exptsList)) {
 # Append to filtered list of genes, then unlist and unique.
 feature_plot_list_filtered <- list()
 for (sample in names(exptsList)) {
+  DefaultAssay(exptsList[[sample]]) <- "SCT"
   subscriptable_genes <- colnames( FetchData(exptsList[[sample]], vars = c("ident", feature_plot_list)) )
   subscriptable_genes <- try({feature_plot_list[feature_plot_list %in% subscriptable_genes]}, silent = TRUE)
   feature_plot_list_filtered <- append(feature_plot_list_filtered, subscriptable_genes)
@@ -291,9 +301,9 @@ exptsList[["integrated"]]@meta.data %>%
     geom_text(aes(label = round(prop * 100, 1)), position = position_stack(vjust = 0.2), color = "white", size = 8)
 ```
 
-```{r adtCluster, results='asis'}
 # ADT per Cluster - Violin Plots {.tabset}
 
+```{r adtCluster, results='asis'}
 for (i in names(exptsList)) {
   cat(paste("##", toupper(i), "\n\n"))
   # Wrapped violin plots of ADT per cluster per sample. Fetch metadata first.
@@ -311,6 +321,7 @@ for (i in names(exptsList)) {
   print(p)
   cat("\n\n")
 }
+
 ```
 
 # 3D UMAP Colored by Clusters
@@ -322,32 +333,31 @@ if (!dir.exists("data/umaps")) {
   dir.create("data/umaps")
 }
 
-for (i in names(exptsList)) {
+for (sample in names(exptsList)) {
 
-  myso <- exptsList[[i]]
+  myso <- exptsList[[sample]]
 
-  cell_meta <- merge(myso@reductions$umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
+  cell_meta <- merge(myso@reductions$wnn.umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
   cell_meta <- cell_meta %>% column_to_rownames("Row.names")
   col_scheme <- colorRampPalette(brewer.pal(8, config_file$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
 
   p <- plot_ly(cell_meta,
-          x = ~UMAP_1,
-          y = ~UMAP_2,
-          z = ~UMAP_3,
+          x = ~wnnUMAP_1,
+          y = ~wnnUMAP_2,
+          z = ~wnnUMAP_3,
           size = 1,
           color = ~seurat_clusters,
           colors = col_scheme,
           # hover text
           text = ~paste("Cluster:", seurat_clusters, "<br>nFeature_ADT:", nFeature_ADT, "<br>nCount_SCT:", nCount_SCT)) %>% 
     add_markers() %>%
-    layout(title = paste(toupper(i), "UMAP Clusters"),
-          xaxis = list(title = "UMAP_1"),
-          yaxis = list(title = "UMAP_2"),
-          zaxis = list(title = "UMAP_3"))
+    layout(title = paste(toupper(sample), "UMAP Clusters"),
+          xaxis = list(title = "wnnUMAP_1"),
+          yaxis = list(title = "wnnUMAP_2"))
 
   # save and print where they are located.
-  out_file <- paste0("data/umaps/", tolower(i), "_umap.html")
-  print(paste("Sample", i, "UMAP file is located at:", out_file))
+  out_file <- paste0("data/umaps/", tolower(sample), "_umap.html")
+  print(paste("Sample", sample, "UMAP file is located at:", out_file))
   htmlwidgets::saveWidget(p, out_file) # Rmd does not output files.
 }
 
@@ -364,14 +374,14 @@ if (!dir.exists("data/umaps")) {
 
 myso <- exptsList[["integrated"]]
 
-cell_meta <- merge(myso@reductions$umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
+cell_meta <- merge(myso@reductions$wnn.umap@cell.embeddings, myso@meta.data, by = 0, all = TRUE)
 cell_meta <- cell_meta %>% column_to_rownames("Row.names")
 col_scheme <- colorRampPalette(brewer.pal(8, config_file$rcolorbrewer_palette))(length(unique(cell_meta$seurat_clusters)))
 
 p <- plot_ly(cell_meta,
-        x = ~UMAP_1,
-        y = ~UMAP_2,
-        z = ~UMAP_3,
+        x = ~wnnUMAP_1,
+        y = ~wnnUMAP_2,
+        z = ~wnnUMAP_3,
         size =1,
         color = ~orig.ident,
         colors = col_scheme,
@@ -379,9 +389,8 @@ p <- plot_ly(cell_meta,
         text = ~paste("Cluster:", seurat_clusters, "<br>nFeature_ADT:", nFeature_ADT, "<br>nCount_SCT:", nCount_SCT)) %>% 
   add_markers() %>%
   layout(title = "Integrated UMAP by Sample Identity",
-        xaxis = list(title = "UMAP_1"),
-        yaxis = list(title = "UMAP_2"),
-        zaxis = list(title = "UMAP_3"))
+        xaxis = list(title = "wnnUMAP_1"),
+        yaxis = list(title = "wnnUMAP_2"))
 
 out_file <- "data/umaps/integrated_identity_umap.html"
 print(paste("Integrated UMAP colored by sample identity is here:", out_file))

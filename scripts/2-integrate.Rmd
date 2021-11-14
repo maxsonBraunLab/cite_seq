@@ -18,6 +18,9 @@ output:
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
+In order to integrate all CITE-Seq datasets together, the RNA (SCT normalized) and ADT (CLR normalized) from all samples will be [integrated separately](https://github.com/satijalab/seurat/issues/2706).
+These two objects will be [integrated together](https://github.com/satijalab/seurat/issues/3890#issuecomment-787598143) to produce one Seurat object that contains all samples and all their modalities.
+
 # Set-Up
 
 ## Libraries 
@@ -26,6 +29,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(Seurat)
 library(yaml)
 library(future)
+library(dplyr)
 ```
 
 # Variables
@@ -53,6 +57,9 @@ nDims <- config_file$integration_anchor_PC
 # how many neighbors (k) to use when picking anchors
 k.anchor <- config_file$`k.anchor`
 
+# List of antibodies in CITE-Seq assay
+ab_list <- config_file$antibody_list
+
 doc_title <- paste(config_file$title, "- integration")
 author_list <- paste(config_file$authors, collapse = ", ")
 ```
@@ -70,59 +77,57 @@ author: "`r author_list`"
 exptsList <- readRDS(params$input_rds)
 
 # Needed to avoid error in getGlobalsandPackges 
-options(future.globals.maxSize= 5000*1024^2)
+options(future.globals.maxSize = 16 * 1024^3)
 ```
 
-# Integration
+# Integration - Transcriptome
+
 ```{r integrate, include=TRUE}
 
 # Collect non-redudant list of features across all samples
-allFeatures <- NULL
+rnaFeatures <- NULL
 
 for (sample in names(exptsList)) {
-  allFeatures <- unique(  c(allFeatures, rownames(exptsList[[sample]]))  )
+  DefaultAssay(exptsList[[sample]]) <- 'SCT'
+  rnaFeatures <- unique(  c(rnaFeatures, rownames(exptsList[[sample]]))  )
 }
 
-options(future.globals.maxSize = 16 * 1024^3)
-plan("multiprocess", workers = config_file$cores) # no need to set seed despite random number generator warnings.
-
 # Select most variable features for integration
-intFeatures <- SelectIntegrationFeatures(object.list = exptsList, 
-                                        nfeatures = length(allFeatures),
-                                        fvf.nfeatures = allFeatures, 
+intFeatures <- SelectIntegrationFeatures(object.list = exptsList,
+                                        nfeatures = length(rnaFeatures),
+                                        fvf.nfeatures = rnaFeatures, 
                                         assay = rep( "SCT", length(samples2process)) )
 
 # Calculate Pearson Residuals
-preppedExptsList <- PrepSCTIntegration(object.list = exptsList, 
+preppedExptsList <- PrepSCTIntegration(object.list = exptsList,
                               anchor.features = intFeatures,
                               verbose = FALSE, 
                               assay = rep( "SCT", length(samples2process)) )
 
 # Identify integration anchors
 ref <- which(names(exptsList) == baseline)
-intAnchors <- FindIntegrationAnchors(object.list = preppedExptsList, 
+intAnchors <- FindIntegrationAnchors(object.list = preppedExptsList,
                                     normalization.method = "SCT",
                                     k.anchor = k.anchor,
                                     assay = rep("SCT", length(samples2process)),
                                     reference = ref, 
                                     dims = 1:nDims,
-                                    anchor.features = intFeatures, 
+                                    anchor.features = intFeatures,
                                     verbose = TRUE)
 
 # Integrate selected data
-integratedSO <- IntegrateData(anchorset = intAnchors, 
+integratedRNA <- IntegrateData(anchorset = intAnchors, 
                               normalization.method = "SCT",
                               dims = 1:nDims,
                               verbose = TRUE, 
-                              new.assay.name = "Integrated")
+                              new.assay.name = "integrated")
 
 # Run PCA on the integrated object
-integratedSO <- RunPCA(integratedSO, npcs = nDims, verbose = FALSE)
+integratedRNA <- RunPCA(integratedRNA, npcs = nDims, verbose = FALSE)
 
-exptsList[['integrated']] <- integratedSO
 ```
 
-# SD Explained per PC {.tabset}
+## Scree Plot - Transcriptome {.tabset}
 
 ```{r elbowPlots, results = 'asis'}
 for (i in names(exptsList)) {
@@ -132,6 +137,69 @@ for (i in names(exptsList)) {
   plot(ElbowPlot(exptsList[[i]], ndims = nDims))
   cat("\n\n")
 }
+```
+
+# Integration - ADT
+
+```{r integrateADT}
+
+adtFeatures <- NULL
+
+for (sample in samples2process) {
+  DefaultAssay(exptsList[[sample]]) <- "ADT"
+  adtFeatures <- unique(  c(adtFeatures, rownames(exptsList[[sample]]))  )
+  exptsList[[sample]] = exptsList[[sample]] %>% RunPCA(npcs = length(ab_list) - 1) # PCA for rPCA integration.
+}
+
+adtDims <- length(ab_list) - 1
+
+# Use reciprocal PCA to integrate ADT
+
+intFeatures <- SelectIntegrationFeatures(object.list = exptsList,
+                                         nfeatures = length(adtFeatures),
+                                         fvf.nfeatures = adtFeatures, 
+                                         assay = rep( "ADT", length(samples2process)) )
+
+print("Integrating all samples using the following ADT features...")
+print(intFeatures)
+
+ref <- which(names(exptsList) == baseline)
+anchors <- FindIntegrationAnchors(object.list = exptsList,
+                                  reference = ref,
+                                  normalization.method = "LogNormalize",
+                                  reduction = "rpca",
+                                  dims = 1:adtDims,
+                                  assay = rep( "ADT", length(samples2process)) )
+integratedADT <- IntegrateData(anchorset = anchors, dims = 1:adtDims)
+
+# Run PCA on the integrated ADT object
+integratedADT <- integratedADT %>% ScaleData() %>% FindVariableFeatures() %>% RunPCA(npcs = adtDims, verbose = FALSE)
+
+# Source: https://github.com/satijalab/seurat/issues/3890#issuecomment-756885252
+
+```
+
+# Generate integrated object
+
+```{r integratedObject}
+
+# add integrated ADT information to integratedRNA object.
+integratedRNA[["iadt"]] <- integratedADT[["integrated"]]
+integratedRNA[["pca.adt"]] <- integratedADT[["pca"]]
+
+# WNN + UMAP
+integratedRNA <- FindMultiModalNeighbors(
+  integratedRNA,
+  reduction.list = list("pca", "pca.adt"),
+  dims.list = list(1:nDims, 1:adtDims),
+  modality.weight.name = "RNA.weight"
+)
+
+# integratedRNA <- RunUMAP(integratedRNA, nn.name = "weighted.nn", reduction.name = "wnn.umap", reduction.key = "wnnUMAP_")
+# integratedRNA <- FindClusters(integratedRNA, graph.name = "wsnn", algorithm = 3, resolution = 2, verbose = FALSE)
+
+exptsList[['integrated']] <- integratedRNA
+
 ```
 
 # Save Data

@@ -57,8 +57,11 @@ percentMitoFilt: 15
 nCountMinFilt: 2000
 nCountMaxFilt: 20000
 
-# principle components to calculate for each sample
+# principle components to calculate for each sample.
 nPCs: 150
+
+# principle components to utilize for each sample.
+usePCs: 20
 
 # visualize cell cycle states versus expression level of these cell cycle genes.
 cc_genes:
@@ -76,8 +79,10 @@ cc_genes:
 # Set the baseline condition
 baseline: "dmso"
 
-# number of principal components to use for FindIntegrationAnchors and IntegrateData.
-integration_anchor_PC: 50
+# number of principal components to use for integrating transcriptome features. Should be <= usePCs
+integration_anchor_PC: 20
+
+# by default, the pipeline will integrate all PCs in the ADT space!
 
 # how many neighbors (k) to use when picking anchors
 k.anchor: 5
@@ -90,9 +95,6 @@ resolutions:
   dmso: 0.3
   ory: 0.3
   integrated: 0.2
-
-# number of PCs to run PCA, UMAP, and ElbowPlot on.
-nDims: 50
 
 # List of genes to view gene expression in UMAP space
 FeaturePlotList:
@@ -111,6 +113,7 @@ FeaturePlotList:
   - HBB-BT
   - CAR1
   - GATA2
+  - VCAN
 # letter casing counts! if you don't see your gene in the output, try a different casing.
 # default gene list reference: https://www.biorxiv.org/content/10.1101/2020.09.14.295295v1
 

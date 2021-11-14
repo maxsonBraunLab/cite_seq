@@ -81,8 +81,14 @@ nCountMaxFilt = config_file$nCountMaxFilt
 # Set how many principle components to calculate
 nPCs <- config_file$nPCs
 
+# How many principle components to use for finding multi-modal neighbors
+usePCs <- config_file$usePCs
+
 # visualize cell cycle states versus expression level of these cell cycle genes.
 cc_genes <- config_file$cc_genes
+
+# how many neighbors (k) to use when picking anchors for mapping
+k.anchor <- config_file$`k.anchor`
 
 doc_title <- paste(config_file$title, '- preprocessing')
 author_list <- paste(config_file$authors, collapse = ", ")
@@ -596,78 +602,68 @@ rm(myso) # remove seurat object from workspace.
 
 ```
 
-# Normalize & Scale
+# Sample Normalization
 
-```{r, cc_diff_regression}
-
-s_genes <- cc.genes.updated.2019$s.genes
-g2m_genes <- cc.genes.updated.2019$g2m.genes
+```{r, normalize}
 
 for (sample in samples2process) {
-  paste(sprintf("Normalize & Scaling the %s object", sample))
+
   myso <- preProcExptsList[[sample]]
-  # Assign cell cycle scores
-  myso <- CellCycleScoring(myso, s.features = s_genes, g2m.features = g2m_genes, set.ident = TRUE)
-  # Per Seurat "Alternate Workflow" to reduce loss of relevant cell cycle information (eg, during hematopoiesis)
-  myso$CC.Difference <- myso$S.Score - myso$G2M.Score
-  # Analyze without cell cycle regression
-  mysoNoReg <- SCTransform(myso, verbose = FALSE)
-  mysoNoReg <- RunPCA(mysoNoReg, npcs = nPCs, verbose = FALSE)
-  # Analyze with cell cycle regression
-  mysoWithReg <- SCTransform(myso,
-                            vars.to.regress = "CC.Difference",
-                            verbose = FALSE)
-  mysoWithReg <- RunPCA(mysoWithReg, npcs = nPCs, verbose = FALSE)
-  # Ridge plot of cell cycle genes
-  regressionPlots[[sample]][["ridgePlotCC"]] <- RidgePlot(mysoWithReg, features = cc_genes, group.by = "Phase", ncol = length(config_file$cc_genes) / 2)
-  # Plot PCAs Pre- and Post- Cell Cycle Regression
-  regressionPlots[[sample]][['pcaPreCCR']] <- DimPlot(mysoNoReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
-  regressionPlots[[sample]][['pcaPostCCR']] <- DimPlot(mysoWithReg, reduction = "pca", group.by = "Phase", split.by = "Phase")
-  # Save Seurat Object with cell cycle regression if indicated above
-  if (cell_cycle_regression) {
-    preProcExptsList[[sample]] <- mysoWithReg
-  } else{
-    preProcExptsList[[sample]] <- mysoNoReg
-  }
-  print(paste("Finished regressing", sample))
+
+  print(paste("Normalizing RNA for", sample))
+  DefaultAssay(myso) <- 'RNA'
+  myso <- SCTransform(myso) %>% FindVariableFeatures() %>% ScaleData() %>% RunPCA(npcs = nPCs)
+
+  print(paste("Normalizing ADT for", sample))
+  DefaultAssay(myso) <- 'ADT'
+  VariableFeatures(myso) <- rownames(myso[["ADT"]]) # use all antibodies for dimensional reduction
+  myso <- NormalizeData(myso, normalization.method = 'CLR', margin = 2) %>%
+    ScaleData() %>%
+    RunPCA(reduction.name = 'apca', nfeatures.print = length(ab_list), npcs = length(ab_list)) # apca for finding multimodal neighbors
+
+  print(paste("Dimensions used for finding multi-modal neighbors"))
+
+  print(paste("Finding WNN in", sample))
+  myso <- FindMultiModalNeighbors(
+    myso,
+    reduction.list = list("pca", "apca"),
+    dims.list = list(1:usePCs, 1:length(ab_list) - 1), # not sure why length(ab_list) leads to indexing error.
+    modality.weight.name = "RNA.weight"
+  )
+  
+  # run UMAP on 3-cluster.Rmd with resolution parameter sweep
+
+  # save myso to list of Seurat objects
+  preProcExptsList[[sample]] <- myso
 }
 
-rm(myso)
-rm(mysoWithReg)
-rm(mysoNoReg)
+# source: https://satijalab.org/seurat/articles/weighted_nearest_neighbor_analysis.html#wnn-analysis-of-cite-seq-rna-adt-1
+```
+
+## Elbow Plots {.tabset}
+
+```{r elbowPlots, results='asis'}
+
+for (sample in samples2process) {
+
+  myso = preProcExptsList[[sample]]
+
+  elbowRNA = ElbowPlot(myso, ndims = nPCs, reduction = "pca") + labs(title = paste("Elbow plot for", sample, "Transcriptome"))
+  elbowADT = ElbowPlot(myso, ndims = length(ab_list) - 1, reduction = "apca") + labs(title = paste("Elbow plot for", sample, "ADT"))
+
+  cat(paste0("### ", toupper(sample)))
+
+  cat("\n\n")
+  print(plot_grid(elbowRNA, elbowADT, nrow = 2))
+  cat("\n\n")
+}
 
 ```
 
-## Cell Cycle Regression Plots {.tabset}
-
-```{r results='asis'}
-for (i in c(samples2process)) {
-  cat(paste("###", toupper(i), "\n"))
-  print(regressionPlots[[i]][["ridgePlotCC"]])
-  cat("\n\n---\n\n")
-  print(regressionPlots[[i]][["pcaPreCCR"]] + regressionPlots[[i]][["pcaPostCCR"]])
-  cat("\n\n---\n\n")
-  heatmapList <- list()
-  for (ii in seq(1,15,1)) {
-    plotLabel <- paste(c("PCA", ii), collapse = "")
-    heatmapList[[plotLabel]] <- DimHeatmap(preProcExptsList[[i]], reduction = "pca", dims = ii, cells = 500, balanced = TRUE, fast=FALSE, nfeatures = 8) +
-      theme(text=element_text(size=6, color="black", face="bold"), legend.position = "none") +
-      scale_y_discrete(position = "right") +
-      scale_fill_viridis()
-  }
-  print(plot_grid(plotlist=heatmapList, labels = names(heatmapList), label_size = 8, nrow = 5, ncol = 3))
-  cat("\n\n---\n\n")
-}
-```
-
-# Save Data
 ```{r}
-print(sprintf("Saving preprocessed data in individual objects in %s", params$output_rds ))
-saveRDS( preProcExptsList, file = params$output_rds )
+saveRDS(preProcExptsList, file = params$output_rds)
 ```
 
-# Session Info
-
-```{r session_info}
+```{r}
 sessionInfo()
 ```

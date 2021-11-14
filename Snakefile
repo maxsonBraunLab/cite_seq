@@ -8,10 +8,12 @@
 import os
 import sys
 import time
+import glob
 
 configfile: "config.yaml"
 
-SAMPLES, = glob_wildcards("data/raw/{sample}")
+# SAMPLES, = glob_wildcards("data/raw/{sample}")
+SAMPLES = [ os.path.basename(i) for i in glob.glob("data/raw/*")]
 
 def message(m):
 	sys.stderr.write("|--- {} \n".format(m))
