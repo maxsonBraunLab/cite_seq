@@ -53,11 +53,11 @@ You can run the pipeline using an interactive node like this:
 
 ```bash
 # request interactive node
-srun --cores=20 --mem=64G --time=24:00:00 --pty bash
+srun --cores=8 --mem=64G --time=24:00:00 --pty bash
 conda activate snakemake
 
-# invoke snakemake with 20 cores using predefined conda envs.
-snakemake -j 20 --use-conda
+# invoke snakemake with 8 cores using predefined conda envs.
+snakemake -j 8 --use-conda
 ```
 
 Or submit batch jobs to the cluster like this:

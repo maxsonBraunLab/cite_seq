@@ -10,7 +10,7 @@ authors:
 
 # number of cores to utilize per node.
 # never set more cores than allowed per node (usually 24 but check the hardware specs).
-cores: 20
+cores: 8
 
 # tracks the beginning of an analysis.
 # This value is preserved across all stages of the analysis.
